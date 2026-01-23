@@ -1,0 +1,205 @@
+"""
+Pydantic models for request/response validation and data structures.
+"""
+
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+
+
+class EvidenceItem(BaseModel):
+    """Single piece of evidence from an agent."""
+    source: str = Field(..., description="Data source (literature, clinical_trials, bioactivity, patent, internal)")
+    indication: Optional[str] = Field(None, description="Disease or indication associated with evidence")
+    summary: str = Field(..., description="Brief summary of the evidence")
+    date: Optional[str] = Field(None, description="Publication or filing date")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata specific to source")
+    relevance_score: Optional[float] = Field(None, description="Relevance score (0-1)")
+    url: Optional[str] = Field(None, description="URL link to the original source")
+    title: Optional[str] = Field(None, description="Title of the evidence (paper title, trial name, etc.)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "source": "literature",
+                "indication": "Type 2 Diabetes",
+                "summary": "Metformin reduces blood glucose levels through AMPK pathway activation",
+                "date": "2023-05-15",
+                "metadata": {"pmid": "12345678", "year": 2023, "citations": 150},
+                "relevance_score": 0.95,
+                "url": "https://pubmed.ncbi.nlm.nih.gov/12345678/",
+                "title": "Metformin and AMPK Pathway Activation in Diabetes Treatment"
+            }
+        }
+
+
+class AgentResponse(BaseModel):
+    """Response from a single agent execution."""
+    agent_name: str = Field(..., description="Name of the agent")
+    status: str = Field(..., description="Execution status (success, error, timeout)")
+    evidence: List[EvidenceItem] = Field(default_factory=list, description="List of evidence items found")
+    error: Optional[str] = Field(None, description="Error message if status is error")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional execution metadata")
+    execution_time: Optional[float] = Field(None, description="Time taken in seconds")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "agent_name": "LiteratureAgent",
+                "status": "success",
+                "evidence": [],
+                "execution_time": 2.5
+            }
+        }
+
+
+class IndicationResult(BaseModel):
+    """Repurposing opportunity with aggregated evidence."""
+    indication: str = Field(..., description="Disease or indication name")
+    confidence_score: float = Field(..., ge=0, le=100, description="Confidence score (0-100)")
+    evidence_count: int = Field(..., description="Number of supporting evidence items")
+    evidence_items: List[EvidenceItem] = Field(..., description="List of supporting evidence")
+    supporting_sources: List[str] = Field(..., description="List of data sources supporting this indication")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "indication": "Cardiovascular Disease",
+                "confidence_score": 87.5,
+                "evidence_count": 12,
+                "evidence_items": [],
+                "supporting_sources": ["literature", "clinical_trials", "bioactivity"]
+            }
+        }
+
+
+class DrugSearchRequest(BaseModel):
+    """Request model for drug repurposing search."""
+    drug_name: str = Field(..., min_length=2, max_length=100, description="Name of the drug to search")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Optional search context")
+    force_refresh: bool = Field(default=False, description="Force refresh from APIs, bypass cache")
+    session_id: Optional[str] = Field(default=None, description="Session ID for WebSocket progress updates")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "drug_name": "Metformin",
+                "context": {"disease_area": "metabolic"},
+                "force_refresh": False
+            }
+        }
+
+
+class SearchResponse(BaseModel):
+    """Complete response from drug repurposing search."""
+    drug_name: str = Field(..., description="Name of the drug searched")
+    search_context: Dict[str, Any] = Field(default_factory=dict, description="Search context used")
+    session_id: str = Field(..., description="Session ID for this search")
+
+    # Agent execution results
+    agent_results: Dict[str, AgentResponse] = Field(..., description="Results from each agent")
+    progress: Dict[str, str] = Field(..., description="Current progress status of each agent")
+    errors: List[str] = Field(default_factory=list, description="List of errors encountered")
+
+    # Processed results
+    all_evidence: List[EvidenceItem] = Field(default_factory=list, description="All evidence collected")
+    ranked_indications: List[IndicationResult] = Field(..., description="Ranked list of repurposing opportunities")
+
+    # LLM synthesis
+    synthesis: Optional[str] = Field(None, description="AI-generated synthesis of findings")
+
+    # Metadata
+    timestamp: str = Field(..., description="Search timestamp (ISO format)")
+    execution_time: float = Field(..., description="Total execution time in seconds")
+    cached: bool = Field(default=False, description="Whether results were served from cache")
+
+    class Config:
+        extra = "ignore"  # Ignore extra fields from frontend
+        json_schema_extra = {
+            "example": {
+                "drug_name": "Metformin",
+                "search_context": {},
+                "session_id": "abc123",
+                "agent_results": {},
+                "progress": {
+                    "literature": "success",
+                    "clinical_trials": "success",
+                    "bioactivity": "success",
+                    "patent": "success",
+                    "internal": "success"
+                },
+                "errors": [],
+                "all_evidence": [],
+                "ranked_indications": [],
+                "synthesis": "Metformin shows promise for...",
+                "timestamp": "2024-01-20T10:30:00Z",
+                "execution_time": 15.7,
+                "cached": False
+            }
+        }
+
+
+class ChatRequest(BaseModel):
+    """Request model for chat interface."""
+    question: str = Field(..., min_length=1, max_length=1000, description="User's question")
+    drug_name: str = Field(..., min_length=1, description="Drug being discussed")
+    indications: Optional[List[str]] = Field(default=None, description="List of indication names")
+    evidence_summary: Optional[str] = Field(default=None, description="Summary of evidence")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "question": "Why is Metformin promising for longevity?",
+                "drug_name": "Metformin",
+                "indications": ["Type 2 Diabetes", "Longevity"],
+                "evidence_summary": "Multiple clinical trials show..."
+            }
+        }
+
+
+class ChatResponse(BaseModel):
+    """Response model for chat interface."""
+    question: str = Field(..., description="Original question")
+    answer: str = Field(..., description="AI-generated response")
+    drug_name: str = Field(..., description="Drug being discussed")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "question": "Why is Metformin promising for longevity?",
+                "answer": "Metformin is promising for longevity because...",
+                "drug_name": "Metformin"
+            }
+        }
+
+
+class ExportRequest(BaseModel):
+    """Request model for PDF export."""
+    search_result: SearchResponse = Field(..., description="Search results to export")
+    include_synthesis: bool = Field(default=True, description="Include LLM synthesis in PDF")
+    include_charts: bool = Field(default=True, description="Include visualizations")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "search_result": {},
+                "include_synthesis": True,
+                "include_charts": True
+            }
+        }
+
+
+class HealthResponse(BaseModel):
+    """Health check response."""
+    status: str = Field(..., description="Service status")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    version: str = Field(default="1.0.0", description="API version")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": "ok",
+                "timestamp": "2024-01-20T10:30:00Z",
+                "version": "1.0.0"
+            }
+        }

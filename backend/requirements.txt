@@ -1,0 +1,46 @@
+# FastAPI and Server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+websockets==12.0
+
+# Data Validation
+pydantic>=2.7.4
+pydantic-settings>=2.3.0
+
+# LangChain and LangGraph (Python 3.12 compatible versions)
+langgraph==0.2.4
+langchain==0.2.14
+langchain-core==0.2.33
+langchain-google-genai==1.0.10
+langchain-community==0.2.12
+langsmith==0.1.98
+
+# HTTP Clients
+httpx==0.26.0
+aiohttp==3.9.1
+requests==2.31.0
+
+# Biomedical APIs
+biopython==1.83
+
+# PDF Generation
+reportlab==4.0.9
+
+# Environment and Utilities
+python-dotenv==1.0.0
+
+# Data Processing
+numpy==1.26.3
+
+# Vector Database and Embeddings
+chromadb==0.4.22
+sentence-transformers==2.3.1
+
+# MongoDB
+motor==3.3.2
+pymongo==4.6.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
