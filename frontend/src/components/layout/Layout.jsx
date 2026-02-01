@@ -105,7 +105,7 @@ const Layout = ({ children, onSelectHistoryItem }) => {
               <button
                 className="flex items-center space-x-2 px-4 py-2 text-gray-400 hover:text-brand-yellow
                          hover:bg-white/5 rounded-lg transition-all duration-200"
-                onClick={() => window.open('https://github.com', '_blank')}
+                onClick={() => window.open('https://github.com/Nezeon/Repurpose.ai', '_blank')}
               >
                 <Github className="w-5 h-5" />
                 <span className="hidden md:inline text-sm font-medium">GitHub</span>
