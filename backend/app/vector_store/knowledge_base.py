@@ -213,33 +213,49 @@ class KnowledgeBase:
         Returns:
             Formatted context string
         """
+        # Check if knowledge base has any data first
+        if not self.is_populated():
+            return ""
+
         context_parts = []
         char_limit = max_tokens * 4  # Rough char to token ratio
 
-        # Query for drug mechanisms
-        mechanism_results = self.query(
-            f"{drug_name} mechanism of action pharmacology",
-            collection_names=["drug_mechanisms"],
-            n_results=3
-        )
-
-        if mechanism_results:
-            context_parts.append("## Drug Mechanism Knowledge:")
-            for r in mechanism_results:
-                context_parts.append(f"- {r['document'][:500]}")
-
-        # Query for each indication
-        for indication in indications[:3]:  # Limit to top 3
-            indication_results = self.query(
-                f"{drug_name} {indication} treatment evidence",
-                collection_names=["disease_pathways", "repurposing_cases", "clinical_guidelines"],
-                n_results=2
+        try:
+            # Query for drug mechanisms
+            mechanism_results = self.query(
+                f"{drug_name} mechanism of action pharmacology",
+                collection_names=["drug_mechanisms"],
+                n_results=3
             )
 
-            if indication_results:
-                context_parts.append(f"\n## Knowledge for {indication}:")
-                for r in indication_results:
-                    context_parts.append(f"- {r['document'][:400]}")
+            if mechanism_results:
+                context_parts.append("## Drug Mechanism Knowledge:")
+                for r in mechanism_results:
+                    doc = r.get('document', '')
+                    if doc:
+                        context_parts.append(f"- {doc[:500]}")
+
+            # Query for each indication
+            for indication in indications[:3]:  # Limit to top 3
+                if not indication or indication == "Unknown Indication":
+                    continue
+
+                indication_results = self.query(
+                    f"{drug_name} {indication} treatment evidence",
+                    collection_names=["disease_pathways", "repurposing_cases", "clinical_guidelines"],
+                    n_results=2
+                )
+
+                if indication_results:
+                    context_parts.append(f"\n## Knowledge for {indication}:")
+                    for r in indication_results:
+                        doc = r.get('document', '')
+                        if doc:
+                            context_parts.append(f"- {doc[:400]}")
+
+        except Exception as e:
+            logger.warning(f"Error during RAG context retrieval: {e}", exc_info=True)
+            return ""
 
         # Combine and truncate
         context = "\n".join(context_parts)

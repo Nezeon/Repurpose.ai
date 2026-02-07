@@ -12,6 +12,28 @@ from app.utils.logger import get_logger
 logger = get_logger("websocket")
 
 
+# EY agent group mapping: internal agent name → EY display group
+EY_AGENT_DISPLAY = {
+    "LiteratureAgent": "Web Intelligence Agent",
+    "ClinicalTrialsAgent": "Clinical Trials Agent",
+    "BioactivityAgent": "Web Intelligence Agent",
+    "PatentAgent": "Patent Landscape Agent",
+    "InternalAgent": "Internal Knowledge Agent",
+    "OpenFDAAgent": "Clinical Trials Agent",
+    "OpenTargetsAgent": "Web Intelligence Agent",
+    "SemanticScholarAgent": "Web Intelligence Agent",
+    "DailyMedAgent": "Clinical Trials Agent",
+    "KEGGAgent": "Web Intelligence Agent",
+    "UniProtAgent": "Web Intelligence Agent",
+    "OrangeBookAgent": "Patent Landscape Agent",
+    "RxNormAgent": "Clinical Trials Agent",
+    "WHOAgent": "Web Intelligence Agent",
+    "DrugBankAgent": "Web Intelligence Agent",
+    "MarketDataAgent": "IQVIA Insights Agent",
+    "EXIMAgent": "EXIM Trade Agent",
+}
+
+
 class ConnectionManager:
     """Manages WebSocket connections for real-time updates."""
 
@@ -89,6 +111,7 @@ class ConnectionManager:
         payload = {
             "type": "agent_progress",
             "agent": agent_name,
+            "display_name": EY_AGENT_DISPLAY.get(agent_name, agent_name),
             "status": status,
             "timestamp": datetime.now().isoformat()
         }

@@ -161,7 +161,7 @@ class BioactivityAgent(BaseAgent):
 
         return enriched
 
-    async def process_data(self, raw_data: List[Dict[str, Any]]) -> List[EvidenceItem]:
+    async def process_data(self, raw_data: List[Dict[str, Any]], drug_name: str = "") -> List[EvidenceItem]:
         """
         Process bioactivity data into evidence items.
 
@@ -306,3 +306,19 @@ class BioactivityAgent(BaseAgent):
             score += 0.1
 
         return min(score, 1.0)
+
+    async def _perform_connection_test(self) -> Dict[str, Any]:
+        """Test connection to ChEMBL API with a status check."""
+        async with AsyncHTTPClient() as client:
+            # Get ChEMBL API status
+            url = f"{self.base_url}/status.json"
+            data = await client.get(url)
+
+            return {
+                "message": "ChEMBL API connected successfully",
+                "details": {
+                    "status": data.get("status", "OK"),
+                    "endpoint": self.base_url,
+                    "version": data.get("chembl_db_version", "Unknown")
+                }
+            }

@@ -5,6 +5,7 @@ State flows through all nodes and accumulates results.
 
 from typing import TypedDict, List, Dict, Any
 from app.models.schemas import AgentResponse, EvidenceItem, IndicationResult
+from app.models.scoring_models import EnhancedIndicationResult, EnhancedOpportunityData
 
 
 class AgentState(TypedDict, total=False):
@@ -28,6 +29,13 @@ class AgentState(TypedDict, total=False):
     # Evidence processing
     all_evidence: List[EvidenceItem]  # All evidence items collected from agents
     ranked_indications: List[IndicationResult]  # Ranked list of repurposing opportunities
+    enhanced_indications: List[EnhancedIndicationResult]  # Composite scored opportunities
+
+    # Enhanced comparative analysis (Phase 3)
+    enhanced_opportunities: Dict[str, EnhancedOpportunityData]  # Full comparative data by indication
+
+    # Score refinement
+    refinement_applied: bool  # Whether enhanced-data score refinement was applied
 
     # LLM synthesis
     synthesis: str  # AI-generated synthesis of findings

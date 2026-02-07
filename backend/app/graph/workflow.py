@@ -10,6 +10,8 @@ from app.graph.nodes import (
     run_agents_parallel,
     aggregate_evidence,
     score_evidence,
+    analyze_comparatives,
+    refine_scores,
     synthesize_results,
     finalize_results
 )
@@ -24,11 +26,13 @@ def create_repurposing_workflow():
 
     The workflow follows this sequence:
     1. initialize_search - Set up initial state
-    2. run_agents_parallel - Execute all 5 agents concurrently
+    2. run_agents_parallel - Execute all 15 agents concurrently
     3. aggregate_evidence - Combine evidence from all agents
-    4. score_evidence - Rank repurposing opportunities
-    5. synthesize_results - Generate AI summary with LLM
-    6. finalize_results - Add metadata and complete
+    4. score_evidence - Rank repurposing opportunities (base 4D scoring)
+    5. analyze_comparatives - Compare against existing treatments
+    6. refine_scores - Adjust scores using enhanced comparative/scientific/market data
+    7. synthesize_results - Generate AI summary with LLM
+    8. finalize_results - Add metadata and complete
 
     Returns:
         Compiled LangGraph workflow
@@ -43,6 +47,8 @@ def create_repurposing_workflow():
     workflow.add_node("run_agents", run_agents_parallel)
     workflow.add_node("aggregate", aggregate_evidence)
     workflow.add_node("score", score_evidence)
+    workflow.add_node("analyze_comparatives", analyze_comparatives)
+    workflow.add_node("refine_scores", refine_scores)
     workflow.add_node("synthesize", synthesize_results)
     workflow.add_node("finalize", finalize_results)
 
@@ -51,7 +57,9 @@ def create_repurposing_workflow():
     workflow.add_edge("initialize", "run_agents")
     workflow.add_edge("run_agents", "aggregate")
     workflow.add_edge("aggregate", "score")
-    workflow.add_edge("score", "synthesize")
+    workflow.add_edge("score", "analyze_comparatives")
+    workflow.add_edge("analyze_comparatives", "refine_scores")
+    workflow.add_edge("refine_scores", "synthesize")
     workflow.add_edge("synthesize", "finalize")
     workflow.add_edge("finalize", END)
 
@@ -59,7 +67,7 @@ def create_repurposing_workflow():
     compiled_workflow = workflow.compile()
 
     logger.info("Workflow created successfully")
-    logger.info("Workflow steps: initialize → run_agents → aggregate → score → synthesize → finalize")
+    logger.info("Workflow steps: initialize -> run_agents -> aggregate -> score -> analyze_comparatives -> refine_scores -> synthesize -> finalize")
 
     return compiled_workflow
 

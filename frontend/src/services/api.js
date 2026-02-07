@@ -155,6 +155,27 @@ export const exportPDF = async (searchResults) => {
 };
 
 /**
+ * Export a single opportunity as PDF
+ * @param {string} drugName - Drug name
+ * @param {object} opportunity - Opportunity data
+ * @param {Array} evidenceItems - Evidence items for this indication
+ * @param {object} enhancedOpportunity - Enhanced data (comparisons, market, science)
+ * @returns {Promise<Blob>} PDF file blob
+ */
+export const exportOpportunityPDF = async (drugName, opportunity, evidenceItems, enhancedOpportunity) => {
+  const response = await api.post(ENDPOINTS.EXPORT_OPPORTUNITY_PDF, {
+    drug_name: drugName,
+    opportunity,
+    evidence_items: evidenceItems,
+    enhanced_opportunity: enhancedOpportunity,
+  }, {
+    responseType: 'blob',
+  });
+
+  return response.data;
+};
+
+/**
  * Export results as JSON
  * @param {object} searchResults - Search results to export
  * @returns {Promise<object>} JSON export data
@@ -170,6 +191,67 @@ export const exportJSON = async (searchResults) => {
  */
 export const checkHealth = async () => {
   const response = await api.get(ENDPOINTS.HEALTH);
+  return response.data;
+};
+
+// Integration API Methods
+
+/**
+ * Get all available integrations
+ * @returns {Promise<Array>} List of all integrations with status
+ */
+export const getIntegrations = async () => {
+  const response = await api.get(ENDPOINTS.INTEGRATIONS);
+  return response.data;
+};
+
+/**
+ * Get list of enabled integration IDs
+ * @returns {Promise<Array>} List of enabled integration IDs
+ */
+export const getEnabledIntegrations = async () => {
+  const response = await api.get(ENDPOINTS.INTEGRATIONS_ENABLED);
+  return response.data;
+};
+
+/**
+ * Enable an integration
+ * @param {string} integrationId - Integration ID to enable
+ * @returns {Promise<object>} Result
+ */
+export const enableIntegration = async (integrationId) => {
+  const response = await api.post(ENDPOINTS.INTEGRATION_ENABLE(integrationId));
+  return response.data;
+};
+
+/**
+ * Disable an integration
+ * @param {string} integrationId - Integration ID to disable
+ * @returns {Promise<object>} Result
+ */
+export const disableIntegration = async (integrationId) => {
+  const response = await api.post(ENDPOINTS.INTEGRATION_DISABLE(integrationId));
+  return response.data;
+};
+
+/**
+ * Configure an integration (set API key, custom settings)
+ * @param {string} integrationId - Integration ID
+ * @param {object} config - Configuration object with api_key, custom_settings
+ * @returns {Promise<object>} Result
+ */
+export const configureIntegration = async (integrationId, config) => {
+  const response = await api.put(ENDPOINTS.INTEGRATION_CONFIGURE(integrationId), config);
+  return response.data;
+};
+
+/**
+ * Test an integration connection
+ * @param {string} integrationId - Integration ID to test
+ * @returns {Promise<object>} Test result with success status and message
+ */
+export const testIntegration = async (integrationId) => {
+  const response = await api.post(ENDPOINTS.INTEGRATION_TEST(integrationId));
   return response.data;
 };
 

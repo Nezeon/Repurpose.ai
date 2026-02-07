@@ -18,10 +18,17 @@ export const ENDPOINTS = {
 
   // Chat endpoints
   CHAT: '/api/chat',
+  CHAT_MESSAGE: '/api/chat/message',
   CHAT_HEALTH: '/api/chat/health',
+
+  // File upload endpoints
+  FILES_UPLOAD: '/api/files/upload',
+  FILES_LIST: '/api/files',
+  FILE_SUMMARY: (fileId) => `/api/files/${fileId}/summary`,
 
   // Export endpoints
   EXPORT_PDF: '/api/export/pdf',
+  EXPORT_OPPORTUNITY_PDF: '/api/export/opportunity-pdf',
   EXPORT_JSON: '/api/export/json',
 
   // Auth endpoints
@@ -30,6 +37,14 @@ export const ENDPOINTS = {
   AUTH_ME: '/api/auth/me',
   AUTH_STATUS: '/api/auth/status',
   AUTH_CHANGE_PASSWORD: '/api/auth/change-password',
+
+  // Integration endpoints
+  INTEGRATIONS: '/api/integrations',
+  INTEGRATIONS_ENABLED: '/api/integrations/enabled',
+  INTEGRATION_ENABLE: (id) => `/api/integrations/${id}/enable`,
+  INTEGRATION_DISABLE: (id) => `/api/integrations/${id}/disable`,
+  INTEGRATION_CONFIGURE: (id) => `/api/integrations/${id}/configure`,
+  INTEGRATION_TEST: (id) => `/api/integrations/${id}/test`,
 
   // Health check
   HEALTH: '/health',
@@ -40,8 +55,8 @@ export const getWebSocketUrl = (sessionId) => {
   return `${WS_URL}/${sessionId}`;
 };
 
-// Request timeout (ms)
-export const API_TIMEOUT = 60000; // 60 seconds
+// Request timeout (ms) - increased for multi-agent search operations with 15 agents
+export const API_TIMEOUT = 600000; // 600 seconds (10 minutes)
 
 // Retry configuration
 export const RETRY_CONFIG = {

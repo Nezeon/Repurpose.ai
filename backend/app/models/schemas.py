@@ -104,6 +104,8 @@ class SearchResponse(BaseModel):
     # Processed results
     all_evidence: List[EvidenceItem] = Field(default_factory=list, description="All evidence collected")
     ranked_indications: List[IndicationResult] = Field(..., description="Ranked list of repurposing opportunities")
+    enhanced_indications: List[Dict[str, Any]] = Field(default_factory=list, description="Enhanced indications with composite scoring")
+    enhanced_opportunities: Dict[str, Dict[str, Any]] = Field(default_factory=dict, description="Enhanced opportunity data with comparisons, market segments, and science")
 
     # LLM synthesis
     synthesis: Optional[str] = Field(None, description="AI-generated synthesis of findings")
@@ -203,3 +205,62 @@ class HealthResponse(BaseModel):
                 "version": "1.0.0"
             }
         }
+
+
+# ============================================================
+# Conversational Chat Models (EY Techathon Master Agent System)
+# ============================================================
+
+class TableData(BaseModel):
+    """Structured table data for chat responses."""
+    title: str = Field("", description="Table title")
+    columns: List[Dict[str, str]] = Field(..., description="Column definitions [{key, label}]")
+    rows: List[Dict[str, Any]] = Field(..., description="Row data")
+
+class ChartData(BaseModel):
+    """Chart configuration for chat responses."""
+    chart_type: str = Field(..., description="Chart type: bar, line, radar, pie")
+    title: str = Field("", description="Chart title")
+    labels: List[str] = Field(default_factory=list, description="X-axis or category labels")
+    datasets: List[Dict[str, Any]] = Field(..., description="Chart datasets [{label, data, color}]")
+
+class AgentActivity(BaseModel):
+    """Tracks which worker agent is active during processing."""
+    agent_name: str = Field(..., description="EY display name of the agent")
+    status: str = Field("pending", description="pending, working, done, error")
+    message: str = Field("", description="Status message")
+
+class ConversationMessage(BaseModel):
+    """A single message in a conversation."""
+    role: str = Field(..., description="user or assistant")
+    content: str = Field(..., description="Message text")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    tables: List[TableData] = Field(default_factory=list, description="Tables in this message")
+    charts: List[ChartData] = Field(default_factory=list, description="Charts in this message")
+    pdf_url: Optional[str] = Field(None, description="Download URL for generated PDF")
+    agent_activities: List[AgentActivity] = Field(default_factory=list, description="Agent activities")
+    suggestions: List[str] = Field(default_factory=list, description="Suggested follow-up questions")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Extra metadata")
+
+class ConversationRequest(BaseModel):
+    """Request to send a message in a conversation."""
+    message: str = Field(..., min_length=1, max_length=2000, description="User's message")
+    conversation_id: Optional[str] = Field(None, description="Existing conversation ID (None for new)")
+    conversation_history: List[Dict[str, str]] = Field(default_factory=list, description="Previous messages [{role, content}]")
+    uploaded_file_ids: List[str] = Field(default_factory=list, description="IDs of uploaded files to reference")
+
+class ConversationResponse(BaseModel):
+    """Rich response from the conversational chat."""
+    conversation_id: str = Field(..., description="Conversation ID")
+    message: ConversationMessage = Field(..., description="The assistant's response message")
+    intent: str = Field("general", description="Detected intent of the user's query")
+    entities: Dict[str, Any] = Field(default_factory=dict, description="Extracted entities (drugs, indications, etc.)")
+
+class FileUploadResponse(BaseModel):
+    """Response from file upload."""
+    file_id: str = Field(..., description="Unique file ID")
+    filename: str = Field(..., description="Original filename")
+    size_bytes: int = Field(..., description="File size in bytes")
+    status: str = Field("processed", description="uploaded, processing, processed, error")
+    chunks: int = Field(0, description="Number of text chunks stored")
+    summary: Optional[str] = Field(None, description="Auto-generated summary")

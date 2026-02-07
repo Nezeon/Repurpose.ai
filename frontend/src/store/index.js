@@ -1,85 +1,206 @@
 /**
  * Global State Management
- * Using Zustand for lightweight state management
+ * Using Zustand for lightweight state management with persistence
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 
 /**
  * Main application store
  */
 export const useAppStore = create(
   devtools(
-    (set, get) => ({
-      // Search state
-      searchResults: null,
-      isSearching: false,
-      searchError: null,
-      sessionId: null,
-      drugName: '',
+    persist(
+      (set, get) => ({
+        // ===================
+        // User State
+        // ===================
+        user: null,
+        setUser: (user) => set({ user }),
+        clearUser: () => set({ user: null }),
 
-      // Cache state
-      cacheStats: null,
+        // ===================
+        // Search State
+        // ===================
+        searchResults: null,
+        isSearching: false,
+        searchError: null,
+        sessionId: null,
+        drugName: '',
 
-      // Chat state
-      chatMessages: [],
-      isChatOpen: false,
+        setSearchResults: (results) =>
+          set({ searchResults: results, searchError: null }),
 
-      // UI state
-      activeTab: 'overview', // 'overview', 'evidence', 'sources', 'chat'
-      selectedIndication: null,
+        setIsSearching: (isSearching) =>
+          set({ isSearching }),
 
-      // Actions
-      setSearchResults: (results) =>
-        set({ searchResults: results, searchError: null }),
+        setSearchError: (error) =>
+          set({ searchError: error, isSearching: false }),
 
-      setIsSearching: (isSearching) =>
-        set({ isSearching }),
+        setSessionId: (sessionId) =>
+          set({ sessionId }),
 
-      setSearchError: (error) =>
-        set({ searchError: error, isSearching: false }),
+        setDrugName: (drugName) =>
+          set({ drugName }),
 
-      setSessionId: (sessionId) =>
-        set({ sessionId }),
+        // ===================
+        // Search History (Persisted)
+        // ===================
+        searchHistory: [],
 
-      setDrugName: (drugName) =>
-        set({ drugName }),
+        addToHistory: (search) =>
+          set((state) => {
+            // Avoid duplicates (by drug name within 1 hour)
+            const exists = state.searchHistory.some(
+              (s) =>
+                s.drugName.toLowerCase() === search.drugName.toLowerCase() &&
+                Date.now() - new Date(s.timestamp).getTime() < 3600000
+            );
+            if (exists) return state;
 
-      setCacheStats: (stats) =>
-        set({ cacheStats: stats }),
+            return {
+              searchHistory: [search, ...state.searchHistory.slice(0, 49)], // Keep last 50
+            };
+          }),
 
-      addChatMessage: (message) =>
-        set((state) => ({
-          chatMessages: [...state.chatMessages, message],
-        })),
+        clearHistory: () => set({ searchHistory: [] }),
 
-      clearChatMessages: () =>
-        set({ chatMessages: [] }),
+        deleteFromHistory: (drugName, timestamp) =>
+          set((state) => ({
+            searchHistory: state.searchHistory.filter(
+              (s) => !(s.drugName === drugName && s.timestamp === timestamp)
+            ),
+          })),
 
-      setIsChatOpen: (isOpen) =>
-        set({ isChatOpen: isOpen }),
+        // ===================
+        // Saved Opportunities (Persisted)
+        // ===================
+        savedOpportunities: [],
 
-      setActiveTab: (tab) =>
-        set({ activeTab: tab }),
+        saveOpportunity: (opportunity) =>
+          set((state) => ({
+            savedOpportunities: [opportunity, ...state.savedOpportunities],
+          })),
 
-      setSelectedIndication: (indication) =>
-        set({ selectedIndication: indication }),
+        removeOpportunity: (id) =>
+          set((state) => ({
+            savedOpportunities: state.savedOpportunities.filter((o) => o.id !== id),
+          })),
 
-      // Reset all state
-      reset: () =>
-        set({
-          searchResults: null,
-          isSearching: false,
-          searchError: null,
-          sessionId: null,
-          drugName: '',
-          chatMessages: [],
-          isChatOpen: false,
-          activeTab: 'overview',
-          selectedIndication: null,
+        clearSavedOpportunities: () => set({ savedOpportunities: [] }),
+
+        // ===================
+        // UI State
+        // ===================
+        sidebarCollapsed: false,
+        toggleSidebar: () =>
+          set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+        activeTab: 'opportunities',
+        setActiveTab: (tab) => set({ activeTab: tab }),
+
+        selectedIndication: null,
+        setSelectedIndication: (indication) =>
+          set({ selectedIndication: indication }),
+
+        // ===================
+        // Chat State
+        // ===================
+        chatMessages: [],
+        isChatOpen: false,
+
+        addChatMessage: (message) =>
+          set((state) => ({
+            chatMessages: [...state.chatMessages, message],
+          })),
+
+        clearChatMessages: () => set({ chatMessages: [] }),
+
+        setIsChatOpen: (isOpen) => set({ isChatOpen: isOpen }),
+
+        // ===================
+        // Cache State
+        // ===================
+        cacheStats: null,
+        setCacheStats: (stats) => set({ cacheStats: stats }),
+
+        // ===================
+        // Integrations State
+        // ===================
+        integrations: [],
+        integrationsLoading: false,
+        integrationsError: null,
+
+        setIntegrations: (integrations) =>
+          set({ integrations, integrationsLoading: false, integrationsError: null }),
+
+        setIntegrationsLoading: (loading) =>
+          set({ integrationsLoading: loading }),
+
+        setIntegrationsError: (error) =>
+          set({ integrationsError: error, integrationsLoading: false }),
+
+        updateIntegrationStatus: (integrationId, enabled) =>
+          set((state) => ({
+            integrations: state.integrations.map((int) =>
+              int.id === integrationId ? { ...int, enabled, status: enabled ? 'active' : 'inactive' } : int
+            ),
+          })),
+
+        updateIntegrationConfig: (integrationId, config) =>
+          set((state) => ({
+            integrations: state.integrations.map((int) =>
+              int.id === integrationId
+                ? { ...int, configured: true, api_key_set: !!config.api_key }
+                : int
+            ),
+          })),
+
+        // ===================
+        // Reset Functions
+        // ===================
+        resetSearch: () =>
+          set({
+            searchResults: null,
+            isSearching: false,
+            searchError: null,
+            sessionId: null,
+            drugName: '',
+            chatMessages: [],
+            isChatOpen: false,
+            activeTab: 'opportunities',
+            selectedIndication: null,
+          }),
+
+        reset: () =>
+          set({
+            searchResults: null,
+            isSearching: false,
+            searchError: null,
+            sessionId: null,
+            drugName: '',
+            chatMessages: [],
+            isChatOpen: false,
+            activeTab: 'opportunities',
+            selectedIndication: null,
+            cacheStats: null,
+            integrations: [],
+            integrationsLoading: false,
+            integrationsError: null,
+          }),
+      }),
+      {
+        name: 'repurpose-ai-storage',
+        // Only persist these fields
+        partialize: (state) => ({
+          user: state.user,
+          searchHistory: state.searchHistory,
+          savedOpportunities: state.savedOpportunities,
+          sidebarCollapsed: state.sidebarCollapsed,
         }),
-    }),
+      }
+    ),
     {
       name: 'drug-repurposing-store',
     }

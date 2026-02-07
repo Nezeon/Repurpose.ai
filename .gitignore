@@ -95,6 +95,7 @@ backend/logs/
 # -----------------------------------------------------------------------------
 backend/data/cache/
 backend/data/vector_store/
+backend/data/vector_db/
 *.cache
 .cache/
 __pycache__/
@@ -109,6 +110,9 @@ htmlcov/
 coverage.xml
 *.cover
 .hypothesis/
+backend/test_output.*
+backend/test_report.pdf
+backend/test_pdf_generation.py
 
 # -----------------------------------------------------------------------------
 # Misc
@@ -117,6 +121,10 @@ coverage.xml
 *.tmp
 *.temp
 nul
+playground-1.mongodb.js
+repurpose_ai_report_demo.html
+repurpose_ai_report_template.html
+CLAUDE_CODE_PDF_MIGRATION_PROMPT.md
 
 # -----------------------------------------------------------------------------
 # Claude Code

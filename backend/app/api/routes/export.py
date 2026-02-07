@@ -1,23 +1,42 @@
 """
 Export API Routes - Export search results to PDF.
+
+NOTE: The export_pdf endpoint is SYNCHRONOUS (not async) because:
+1. Playwright's sync API cannot run inside an asyncio event loop
+2. FastAPI automatically runs sync endpoints in a thread pool
+3. The thread pool workers don't have an event loop, so Playwright works
 """
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from typing import Dict, Any
+from pydantic import BaseModel, Field
+from typing import Dict, Any, List, Optional
 import io
+import threading
+import time
 
 from app.models.schemas import SearchResponse
 from app.utils.logger import get_logger
+
+
+class OpportunityExportRequest(BaseModel):
+    """Request model for single-opportunity PDF export."""
+    drug_name: str = Field(..., description="Name of the drug")
+    opportunity: Dict[str, Any] = Field(..., description="Opportunity data")
+    evidence_items: List[Dict[str, Any]] = Field(default_factory=list, description="Evidence items for this indication")
+    enhanced_opportunity: Optional[Dict[str, Any]] = Field(None, description="Enhanced data (comparisons, market, science)")
 
 logger = get_logger("api.export")
 router = APIRouter()
 
 
 @router.post("/export/pdf")
-async def export_pdf(result: SearchResponse) -> StreamingResponse:
+def export_pdf(result: SearchResponse) -> StreamingResponse:
     """
     Export search results to a formatted PDF report.
+
+    NOTE: This is a SYNC endpoint (not async) to allow Playwright sync API
+    to work. FastAPI runs this in a thread pool automatically.
 
     Args:
         result: Search result to export
@@ -28,19 +47,26 @@ async def export_pdf(result: SearchResponse) -> StreamingResponse:
     Raises:
         HTTPException: On PDF generation errors
     """
-    try:
-        logger.info(f"PDF export requested for: {result.drug_name}")
+    start_time = time.time()
+    thread_name = threading.current_thread().name
 
-        # Import PDF generator (we'll create this utility next)
-        from app.utils.pdf_generator import generate_pdf_report
+    logger.info(f"[{thread_name}] PDF export requested for: {result.drug_name}")
+    logger.debug(f"[{thread_name}] Running in thread pool (no asyncio event loop)")
+
+    try:
+        # Import HTML-based PDF generator (Playwright sync API)
+        logger.debug(f"[{thread_name}] Importing PDF generator...")
+        from app.utils.html_pdf_generator import generate_pdf_report
 
         # Generate PDF
+        logger.info(f"[{thread_name}] Starting PDF generation...")
         pdf_buffer = generate_pdf_report(result)
 
         # Create filename
         filename = f"{result.drug_name.replace(' ', '_')}_repurposing_report.pdf"
 
-        logger.info(f"PDF generated successfully: {filename}")
+        elapsed = time.time() - start_time
+        logger.info(f"[{thread_name}] PDF generated successfully: {filename} ({len(pdf_buffer):,} bytes) in {elapsed:.2f}s")
 
         # Return as streaming response
         return StreamingResponse(
@@ -52,15 +78,68 @@ async def export_pdf(result: SearchResponse) -> StreamingResponse:
         )
 
     except ImportError as e:
-        logger.error(f"PDF generator not available: {e}")
+        logger.error(f"[{thread_name}] PDF generator not available: {e}")
         raise HTTPException(
             status_code=501,
-            detail="PDF export not yet implemented. Install reportlab: pip install reportlab"
+            detail="PDF export not available. Install dependencies: pip install playwright jinja2 && playwright install chromium"
         )
 
     except Exception as e:
-        logger.error(f"PDF export failed: {e}", exc_info=True)
+        elapsed = time.time() - start_time
+        logger.error(f"[{thread_name}] PDF export failed after {elapsed:.2f}s: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"PDF export failed: {str(e)}")
+
+
+@router.post("/export/opportunity-pdf")
+def export_opportunity_pdf(request: OpportunityExportRequest) -> StreamingResponse:
+    """
+    Export a single opportunity to a focused mini PDF report.
+
+    NOTE: This is a SYNC endpoint (not async) to allow Playwright sync API
+    to work. FastAPI runs this in a thread pool automatically.
+    """
+    start_time = time.time()
+    thread_name = threading.current_thread().name
+
+    logger.info(f"[{thread_name}] Opportunity PDF export requested for: {request.drug_name}")
+
+    try:
+        from app.utils.html_pdf_generator import generate_opportunity_pdf
+
+        logger.info(f"[{thread_name}] Starting opportunity PDF generation...")
+        pdf_buffer = generate_opportunity_pdf(
+            request.drug_name,
+            request.opportunity,
+            request.evidence_items,
+            request.enhanced_opportunity,
+        )
+
+        indication = request.opportunity.get('indication', 'opportunity')
+        safe_indication = indication.replace(' ', '_').replace('/', '_')[:40]
+        filename = f"{request.drug_name.replace(' ', '_')}_{safe_indication}_report.pdf"
+
+        elapsed = time.time() - start_time
+        logger.info(f"[{thread_name}] Opportunity PDF generated: {filename} ({len(pdf_buffer):,} bytes) in {elapsed:.2f}s")
+
+        return StreamingResponse(
+            io.BytesIO(pdf_buffer),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except ImportError as e:
+        logger.error(f"[{thread_name}] PDF generator not available: {e}")
+        raise HTTPException(
+            status_code=501,
+            detail="PDF export not available. Install dependencies: pip install playwright jinja2 && playwright install chromium"
+        )
+
+    except Exception as e:
+        elapsed = time.time() - start_time
+        logger.error(f"[{thread_name}] Opportunity PDF export failed after {elapsed:.2f}s: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Opportunity PDF export failed: {str(e)}")
 
 
 @router.post("/export/json")

@@ -133,6 +133,7 @@ class EmbeddingManager:
 class ChromaEmbeddingFunction:
     """
     Adapter class to use EmbeddingManager with ChromaDB's embedding function interface.
+    Implements the chromadb.EmbeddingFunction protocol.
     """
 
     def __init__(self, embedding_manager: Optional[EmbeddingManager] = None):
@@ -143,6 +144,12 @@ class ChromaEmbeddingFunction:
             embedding_manager: EmbeddingManager instance (uses singleton if None)
         """
         self._manager = embedding_manager or get_embedding_manager()
+        # Instance-level name attribute (required by ChromaDB)
+        self._name = "custom_embedding_function"
+
+    def name(self) -> str:
+        """Return the name of this embedding function (ChromaDB requirement)."""
+        return self._name
 
     def __call__(self, input: List[str]) -> List[List[float]]:
         """
@@ -154,7 +161,23 @@ class ChromaEmbeddingFunction:
         Returns:
             List of embedding vectors
         """
-        return self._manager.embed(input)
+        try:
+            if not input:
+                return []
+            return self._manager.embed(input)
+        except Exception as e:
+            logger.error(f"Embedding generation failed: {e}")
+            # Return empty embeddings to avoid breaking the pipeline
+            return []
+
+    def embed_query(self, input) -> List[List[float]]:
+        """Embed query text(s) — required by ChromaDB 1.4.1 for collection.query()."""
+        if isinstance(input, str):
+            input = [input]
+        return self.__call__(input)
+
+    def __repr__(self) -> str:
+        return f"ChromaEmbeddingFunction(name={self._name})"
 
 
 def get_embedding_manager(model_name: Optional[str] = None) -> EmbeddingManager:

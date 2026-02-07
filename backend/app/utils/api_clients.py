@@ -128,7 +128,11 @@ class AsyncHTTPClient:
         """Async context manager entry."""
         self._client = httpx.AsyncClient(
             timeout=self.timeout,
-            follow_redirects=True
+            follow_redirects=True,
+            headers={
+                "User-Agent": "DrugRepurposingPlatform/1.0 (Research Tool; https://github.com/drug-repurposing)",
+                "Accept": "application/json",
+            }
         )
         return self
 
@@ -150,7 +154,7 @@ class AsyncHTTPClient:
         Args:
             url: Request URL
             params: Query parameters
-            headers: Request headers
+            headers: Request headers (will override default headers)
             retry: Enable retry with exponential backoff
 
         Returns:
@@ -163,10 +167,58 @@ class AsyncHTTPClient:
             if not self._client:
                 raise RuntimeError("Client not initialized. Use async context manager.")
 
+            # Merge default headers with custom headers (custom takes precedence)
+            merged_headers = {
+                "User-Agent": "DrugRepurposingPlatform/1.0 (Research Tool)",
+                "Accept": "application/json",
+            }
+            if headers:
+                merged_headers.update(headers)
+
             logger.debug(f"GET {url} with params: {params}")
-            response = await self._client.get(url, params=params, headers=headers)
+            response = await self._client.get(url, params=params, headers=merged_headers)
             response.raise_for_status()
             return response.json()
+
+        if retry:
+            return await retry_with_backoff(
+                _make_request,
+                max_retries=self.max_retries,
+                initial_delay=settings.RETRY_DELAY
+            )
+        else:
+            return await _make_request()
+
+    async def get_text(
+        self,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        retry: bool = True
+    ) -> str:
+        """
+        Perform GET request returning plain text (for APIs like KEGG that return text/plain).
+
+        Args:
+            url: Request URL
+            params: Query parameters
+            headers: Request headers
+            retry: Enable retry with exponential backoff
+
+        Returns:
+            Response as plain text string
+
+        Raises:
+            httpx.HTTPError: On request failure after retries
+        """
+        async def _make_request():
+            if not self._client:
+                raise RuntimeError("Client not initialized. Use async context manager.")
+
+            logger.debug(f"GET (text) {url} with params: {params}")
+            response = await self._client.get(url, params=params, headers=headers)
+            response.raise_for_status()
+            return response.text
 
         if retry:
             return await retry_with_backoff(
@@ -240,7 +292,13 @@ class AIOHTTPClient:
 
     async def __aenter__(self):
         """Async context manager entry."""
-        self._session = aiohttp.ClientSession(timeout=self.timeout)
+        self._session = aiohttp.ClientSession(
+            timeout=self.timeout,
+            headers={
+                "User-Agent": "DrugRepurposingPlatform/1.0 (Research Tool; https://github.com/drug-repurposing)",
+                "Accept": "application/json",
+            }
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

@@ -124,17 +124,17 @@ class MongoDB:
     @property
     def users(self):
         """Get users collection."""
-        return self._db.users if self._db else None
+        return self._db.users if self._db is not None else None
 
     @property
     def search_history(self):
         """Get search_history collection."""
-        return self._db.search_history if self._db else None
+        return self._db.search_history if self._db is not None else None
 
     @property
     def cache(self):
         """Get cache collection."""
-        return self._db.cache if self._db else None
+        return self._db.cache if self._db is not None else None
 
 
 async def get_database() -> Optional[MongoDB]:
@@ -149,10 +149,12 @@ async def get_database() -> Optional[MongoDB]:
     if _mongodb is None:
         _mongodb = MongoDB()
 
-    if not _mongodb.is_connected:
+    if _mongodb.is_connected is False:
         await _mongodb.connect()
 
-    return _mongodb if _mongodb.is_connected else None
+    if _mongodb.is_connected:
+        return _mongodb
+    return None
 
 
 async def close_database():

@@ -399,16 +399,22 @@ class CacheRepository:
 async def get_user_repository() -> Optional[UserRepository]:
     """Get user repository instance."""
     db = await get_database()
-    return UserRepository(db) if db else None
+    if db is not None:
+        return UserRepository(db)
+    return None
 
 
 async def get_search_history_repository() -> Optional[SearchHistoryRepository]:
     """Get search history repository instance."""
     db = await get_database()
-    return SearchHistoryRepository(db) if db else None
+    if db is not None:
+        return SearchHistoryRepository(db)
+    return None
 
 
 async def get_cache_repository() -> Optional[CacheRepository]:
     """Get cache repository instance."""
     db = await get_database()
-    return CacheRepository(db) if db else None
+    if db is not None:
+        return CacheRepository(db)
+    return None

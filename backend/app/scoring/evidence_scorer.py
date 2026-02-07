@@ -20,11 +20,25 @@ class EvidenceScorer:
         # Base scores for each data source (out of 100)
         # These represent the inherent value of evidence from each source
         self.source_base_scores = {
+            # Original agents
             "clinical_trials": 70,  # Clinical validation is most valuable
             "literature": 60,       # Peer-reviewed research
             "bioactivity": 55,      # Molecular/experimental data
             "patent": 50,           # Commercial interest indicator
-            "internal": 50          # Proprietary data
+            "internal": 50,         # Proprietary data
+            # Tier 1 agents (Phase 2)
+            "openfda": 65,          # FDA safety data is critical
+            "opentargets": 65,      # Validated disease associations
+            "semantic_scholar": 60, # Enhanced literature with citations
+            # Tier 2 agents (Phase 2)
+            "dailymed": 55,         # FDA labeling information
+            "kegg": 50,             # Pathway and disease links
+            "uniprot": 50,          # Protein target data
+            "orange_book": 55,      # Patent/exclusivity data
+            # Tier 3 agents (Phase 2)
+            "rxnorm": 50,           # Drug normalization data
+            "who": 55,              # WHO Essential Medicines
+            "drugbank": 60          # Comprehensive drug database
         }
 
     def score_evidence(self, evidence: EvidenceItem) -> float:
@@ -51,6 +65,29 @@ class EvidenceScorer:
             base_score = self._score_patent(evidence, base_score)
         elif evidence.source == "internal":
             base_score = self._score_internal(evidence, base_score)
+        # Tier 1 agents (Phase 2)
+        elif evidence.source == "openfda":
+            base_score = self._score_openfda(evidence, base_score)
+        elif evidence.source == "opentargets":
+            base_score = self._score_opentargets(evidence, base_score)
+        elif evidence.source == "semantic_scholar":
+            base_score = self._score_semantic_scholar(evidence, base_score)
+        # Tier 2 agents (Phase 2)
+        elif evidence.source == "dailymed":
+            base_score = self._score_dailymed(evidence, base_score)
+        elif evidence.source == "kegg":
+            base_score = self._score_kegg(evidence, base_score)
+        elif evidence.source == "uniprot":
+            base_score = self._score_uniprot(evidence, base_score)
+        elif evidence.source == "orange_book":
+            base_score = self._score_orange_book(evidence, base_score)
+        # Tier 3 agents (Phase 2)
+        elif evidence.source == "rxnorm":
+            base_score = self._score_rxnorm(evidence, base_score)
+        elif evidence.source == "who":
+            base_score = self._score_who(evidence, base_score)
+        elif evidence.source == "drugbank":
+            base_score = self._score_drugbank(evidence, base_score)
 
         # Add bonus for high relevance score (additive, not multiplicative)
         if evidence.relevance_score and evidence.relevance_score > 0:
@@ -181,6 +218,269 @@ class EvidenceScorer:
 
         return base_score
 
+    def _score_openfda(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score OpenFDA evidence (adverse events, labels, recalls)."""
+        metadata = evidence.metadata
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "adverse_event":
+            # Higher adverse event counts suggest more usage/interest
+            count = metadata.get("count", 0)
+            if count > 10000:
+                base_score += 15
+            elif count > 5000:
+                base_score += 10
+            elif count > 1000:
+                base_score += 5
+
+        elif data_type == "label":
+            # Labels with approved indications are highly relevant
+            base_score += 15
+
+        elif data_type == "recall":
+            # Recalls are important safety signals (boost for awareness)
+            classification = metadata.get("classification", "")
+            if classification == "Class I":
+                base_score += 10  # Most serious
+            elif classification == "Class II":
+                base_score += 5
+
+        return base_score
+
+    def _score_opentargets(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score OpenTargets evidence (indications, mechanisms, associations)."""
+        metadata = evidence.metadata
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "indication":
+            # Boost based on clinical phase
+            max_phase = metadata.get("max_phase", 0)
+            if max_phase >= 4:
+                base_score += 25  # Approved
+            elif max_phase >= 3:
+                base_score += 20  # Phase 3
+            elif max_phase >= 2:
+                base_score += 15  # Phase 2
+            elif max_phase >= 1:
+                base_score += 10  # Phase 1
+
+        elif data_type == "mechanism":
+            # Mechanism data is valuable for understanding
+            base_score += 10
+
+        elif data_type == "linked_disease":
+            # Association score boost
+            assoc_score = metadata.get("association_score", 0)
+            if assoc_score > 0.7:
+                base_score += 15
+            elif assoc_score > 0.5:
+                base_score += 10
+            elif assoc_score > 0.3:
+                base_score += 5
+
+        return base_score
+
+    def _score_semantic_scholar(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score Semantic Scholar evidence (papers with citations)."""
+        metadata = evidence.metadata
+
+        # Boost for high citation count
+        citations = metadata.get("citation_count", 0)
+        if citations > 500:
+            base_score += 20
+        elif citations > 200:
+            base_score += 15
+        elif citations > 100:
+            base_score += 10
+        elif citations > 50:
+            base_score += 5
+
+        # Boost for influential citations
+        influential = metadata.get("influential_citations", 0)
+        if influential > 50:
+            base_score += 10
+        elif influential > 20:
+            base_score += 5
+
+        # Boost for recency
+        year = metadata.get("year")
+        if year:
+            try:
+                year_int = int(year)
+                if year_int >= 2023:
+                    base_score += 15
+                elif year_int >= 2020:
+                    base_score += 10
+                elif year_int >= 2018:
+                    base_score += 5
+            except (ValueError, TypeError):
+                pass
+
+        return base_score
+
+    def _score_dailymed(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score DailyMed evidence (FDA drug labeling)."""
+        metadata = evidence.metadata
+
+        # DailyMed provides official FDA labeling
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "spl":
+            # SPL with full labeling is valuable
+            base_score += 15
+
+            # Boost for specific product types
+            product_type = metadata.get("product_type", "").lower()
+            if "prescription" in product_type:
+                base_score += 5
+
+        return base_score
+
+    def _score_kegg(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score KEGG evidence (pathways and disease links)."""
+        metadata = evidence.metadata
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "disease_link":
+            # Direct disease links are valuable
+            base_score += 15
+
+        elif data_type == "pathway":
+            # Pathway information provides mechanistic insight
+            pathway_count = metadata.get("pathway_count", 0)
+            if pathway_count >= 5:
+                base_score += 15
+            elif pathway_count >= 3:
+                base_score += 10
+            elif pathway_count >= 1:
+                base_score += 5
+
+        return base_score
+
+    def _score_uniprot(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score UniProt evidence (protein target data)."""
+        metadata = evidence.metadata
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "disease_association":
+            # Disease associations from UniProt are well-curated
+            base_score += 15
+
+        elif data_type == "function":
+            # Function information provides context
+            base_score += 10
+
+        return base_score
+
+    def _score_orange_book(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score Orange Book evidence (FDA approvals, patents, exclusivity)."""
+        metadata = evidence.metadata
+
+        # Boost based on submission status
+        submission_status = metadata.get("submission_status", "").upper()
+        if "AP" in submission_status or "APPROVED" in submission_status:
+            base_score += 20
+        elif "TA" in submission_status:  # Tentative approval
+            base_score += 10
+
+        # Boost for original applications (new drug)
+        submission_type = metadata.get("submission_type", "")
+        if submission_type == "ORIG":
+            base_score += 10
+
+        return base_score
+
+    def _score_rxnorm(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score RxNorm evidence (drug normalization, interactions, classes)."""
+        metadata = evidence.metadata
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "properties":
+            # Core drug normalization data
+            base_score += 10
+
+        elif data_type == "drug_class":
+            # Therapeutic classification is valuable
+            base_score += 15
+
+        elif data_type == "interaction":
+            # Drug interactions are important for safety
+            severity = metadata.get("severity", "").lower()
+            if severity == "high" or severity == "severe":
+                base_score += 15
+            elif severity == "moderate":
+                base_score += 10
+            else:
+                base_score += 5
+
+        elif data_type == "related_drug":
+            # Related formulations are useful
+            base_score += 5
+
+        return base_score
+
+    def _score_who(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score WHO evidence (Essential Medicines, disease burden)."""
+        metadata = evidence.metadata
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "essential_medicine":
+            # WHO Essential Medicine status is highly valuable
+            base_score += 25
+            if metadata.get("core"):
+                base_score += 10  # Additional bonus for core list
+
+        elif data_type == "disease_burden":
+            # WHO disease burden data
+            who_priority = metadata.get("who_priority", "").lower()
+            if who_priority == "high":
+                base_score += 15
+            elif who_priority == "medium":
+                base_score += 10
+            else:
+                base_score += 5
+
+        elif data_type == "similar_essential_medicine":
+            # Related essential medicines
+            base_score += 5
+
+        return base_score
+
+    def _score_drugbank(self, evidence: EvidenceItem, base_score: float) -> float:
+        """Score DrugBank evidence (drug info, targets, indications)."""
+        metadata = evidence.metadata
+        data_type = metadata.get("data_type", "")
+
+        if data_type == "drug_info":
+            # Comprehensive drug information
+            base_score += 15
+            # Boost for approved drugs
+            groups = metadata.get("groups", [])
+            if "approved" in groups:
+                base_score += 10
+
+        elif data_type == "target":
+            # Drug target information is valuable
+            base_score += 15
+            # Bonus for specific action types
+            action = metadata.get("action", "").lower()
+            if action in ["inhibitor", "activator", "agonist", "antagonist"]:
+                base_score += 5
+
+        elif data_type == "indication":
+            # Direct indications from DrugBank
+            base_score += 20
+
+        elif data_type == "categories":
+            # Therapeutic categories
+            base_score += 10
+
+        elif data_type == "toxicity":
+            # Toxicity data is important for feasibility
+            base_score += 10
+
+        return base_score
+
     def rank_indications(self, evidence_list: List[EvidenceItem]) -> List[IndicationResult]:
         """
         Group evidence by indication and rank by confidence.
@@ -193,13 +493,21 @@ class EvidenceScorer:
         """
         logger.info(f"Ranking {len(evidence_list)} evidence items...")
 
-        # Group evidence by indication
+        # Group evidence by indication (skip items without proper indication)
         indication_map = defaultdict(list)
+        skipped_count = 0
 
         for evidence in evidence_list:
-            indication = evidence.indication or "Unknown Indication"
+            indication = evidence.indication
+            # Skip evidence without a valid indication
+            if not indication or indication.lower() == "unknown indication":
+                skipped_count += 1
+                continue
             score = self.score_evidence(evidence)
             indication_map[indication].append((evidence, score))
+
+        if skipped_count > 0:
+            logger.info(f"Skipped {skipped_count} evidence items without valid indication")
 
         # Aggregate scores per indication
         results = []

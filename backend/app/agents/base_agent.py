@@ -45,12 +45,13 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    async def process_data(self, raw_data: List[Dict[str, Any]]) -> List[EvidenceItem]:
+    async def process_data(self, raw_data: List[Dict[str, Any]], drug_name: str = "") -> List[EvidenceItem]:
         """
         Process raw data into structured evidence items.
 
         Args:
             raw_data: List of raw data dictionaries from fetch_data
+            drug_name: Name of the drug being processed
 
         Returns:
             List of processed EvidenceItem objects
@@ -59,6 +60,54 @@ class BaseAgent(ABC):
             Exception: On processing failure
         """
         pass
+
+    async def test_connection(self) -> Dict[str, Any]:
+        """
+        Test the connection to the external API/data source.
+        Performs a minimal health check to verify the service is reachable.
+
+        Returns:
+            Dictionary with:
+                - success: bool indicating if connection succeeded
+                - message: description of the result
+                - response_time_ms: time taken for the test
+                - details: optional additional info
+        """
+        start_time = time.time()
+        try:
+            result = await self._perform_connection_test()
+            response_time = (time.time() - start_time) * 1000
+
+            return {
+                "success": True,
+                "message": result.get("message", f"Connection to {self.name} successful"),
+                "response_time_ms": round(response_time, 2),
+                "details": result.get("details", {})
+            }
+        except Exception as e:
+            response_time = (time.time() - start_time) * 1000
+            self.logger.error(f"Connection test failed for {self.name}: {e}")
+            return {
+                "success": False,
+                "message": f"Connection failed: {str(e)}",
+                "response_time_ms": round(response_time, 2),
+                "details": {"error": str(e)}
+            }
+
+    async def _perform_connection_test(self) -> Dict[str, Any]:
+        """
+        Perform the actual connection test. Override in subclasses for custom tests.
+
+        Returns:
+            Dictionary with message and optional details
+        """
+        # Default implementation: try to fetch data for a common test drug
+        test_drug = "aspirin"
+        raw_data = await self.fetch_data(test_drug, {})
+        return {
+            "message": f"Successfully connected and retrieved {len(raw_data)} records",
+            "details": {"test_query": test_drug, "records_found": len(raw_data)}
+        }
 
     async def run(self, drug_name: str, context: Dict[str, Any] = None) -> AgentResponse:
         """
@@ -83,7 +132,7 @@ class BaseAgent(ABC):
             self.logger.debug(f"{self.name} fetched {len(raw_data)} raw items")
 
             # Process into evidence items
-            evidence = await self.process_data(raw_data)
+            evidence = await self.process_data(raw_data, drug_name)
             self.logger.info(f"{self.name} processed {len(evidence)} evidence items")
 
             execution_time = time.time() - start_time
@@ -124,6 +173,10 @@ class BaseAgent(ABC):
         Returns:
             Extracted indication or "Unknown"
         """
+        # Handle None or empty text
+        if not text:
+            return "Unknown Indication"
+
         # Common disease keywords
         disease_keywords = [
             "diabetes", "cancer", "cardiovascular", "alzheimer", "parkinson",

@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     # API Keys
     GEMINI_API_KEY: str = "your_gemini_api_key_here"
     LENS_API_KEY: Optional[str] = None
+    SEMANTIC_SCHOLAR_API_KEY: Optional[str] = None
+    DRUGBANK_API_KEY: Optional[str] = None
+    PATENTSVIEW_API_KEY: Optional[str] = None  # Optional: PatentsView v2 API key for live patent search
+
+    # Supabase Settings
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_KEY: Optional[str] = None
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
 
     # LLM Configuration
     OLLAMA_BASE_URL: str = "http://localhost:11434"
@@ -40,15 +48,28 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # API Settings
-    API_TIMEOUT: int = 30
-    MAX_RETRIES: int = 3
-    RETRY_DELAY: int = 2  # seconds
+    API_TIMEOUT: int = 60  # Increased timeout for external APIs
+    MAX_RETRIES: int = 2  # Reduced retries to speed up overall response
+    RETRY_DELAY: int = 1  # seconds
 
-    # Rate Limits
+    # Rate Limits - Existing Agents
     PUBMED_RATE_LIMIT: float = 3.0  # requests per second
     CLINICAL_TRIALS_RATE_LIMIT: float = 1.0
     CHEMBL_RATE_LIMIT: float = 2.0
     LENS_RATE_LIMIT: float = 0.5
+    USPTO_RATE_LIMIT: float = 5.0  # PatentsView API - generous limits, no key needed
+
+    # Rate Limits - New Agents (Phase 2)
+    OPENFDA_RATE_LIMIT: float = 4.0  # 240 req/min without API key
+    OPENTARGETS_RATE_LIMIT: float = 2.0  # GraphQL API
+    SEMANTIC_SCHOLAR_RATE_LIMIT: float = 0.33  # 100 req/5min = ~0.33/sec
+    DAILYMED_RATE_LIMIT: float = 2.0
+    KEGG_RATE_LIMIT: float = 1.0
+    UNIPROT_RATE_LIMIT: float = 3.0
+    RXNORM_RATE_LIMIT: float = 5.0  # 20 req/sec max
+    WHO_RATE_LIMIT: float = 1.0
+    DRUGBANK_RATE_LIMIT: float = 1.0
+    ORANGE_BOOK_RATE_LIMIT: float = 1.0
 
     # CORS Settings
     CORS_ORIGINS: list[str] = [

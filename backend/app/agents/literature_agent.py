@@ -168,7 +168,7 @@ class LiteratureAgent(BaseAgent):
             self.logger.warning(f"Failed to parse article: {e}")
             return None
 
-    async def process_data(self, raw_data: List[Dict[str, Any]]) -> List[EvidenceItem]:
+    async def process_data(self, raw_data: List[Dict[str, Any]], drug_name: str = "") -> List[EvidenceItem]:
         """
         Process PubMed articles into evidence items.
 
@@ -280,3 +280,27 @@ class LiteratureAgent(BaseAgent):
                 break
 
         return min(score, 1.0)
+
+    async def _perform_connection_test(self) -> Dict[str, Any]:
+        """Test connection to PubMed/NCBI Entrez API."""
+        loop = asyncio.get_event_loop()
+
+        def _test_entrez():
+            # Use einfo to get database info - minimal API call
+            handle = Entrez.einfo(db="pubmed")
+            result = Entrez.read(handle)
+            handle.close()
+            return result
+
+        result = await loop.run_in_executor(None, _test_entrez)
+        db_info = result.get("DbInfo", {})
+
+        return {
+            "message": "PubMed/NCBI Entrez API connected successfully",
+            "details": {
+                "database": "pubmed",
+                "description": db_info.get("Description", "PubMed database"),
+                "record_count": db_info.get("Count", "Unknown"),
+                "last_update": db_info.get("LastUpdate", "Unknown")
+            }
+        }

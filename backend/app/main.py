@@ -107,6 +107,37 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Knowledge base initialization skipped: {e}")
 
+    # Auto-load internal demo documents into ChromaDB
+    try:
+        import os
+        from app.vector_store import get_knowledge_base
+        kb = get_knowledge_base()
+
+        docs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "internal_docs")
+        if os.path.exists(docs_dir):
+            doc_files = [f for f in os.listdir(docs_dir) if f.endswith('.txt')]
+            if doc_files:
+                docs = []
+                metas = []
+                ids = []
+                for fname in doc_files:
+                    fpath = os.path.join(docs_dir, fname)
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    # Chunk into ~500 word pieces
+                    words = content.split()
+                    for i in range(0, len(words), 450):
+                        chunk = " ".join(words[i:i+500])
+                        docs.append(chunk)
+                        metas.append({"source": fname, "type": "internal_document"})
+                        ids.append(f"internal_{fname}_{i}")
+
+                if docs:
+                    kb.add_documents("repurposing_cases", docs, metas, ids)
+                    logger.info(f"Loaded {len(docs)} chunks from {len(doc_files)} internal documents")
+    except Exception as e:
+        logger.warning(f"Internal document loading skipped: {e}")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -150,15 +181,18 @@ async def health_check():
 
 
 # API Routes
-from app.api.routes import search, chat, export, knowledge, auth
+from app.api.routes import search, chat, export, knowledge, auth, market, integrations, files
 from app.api.websocket import websocket_endpoint
 
 # Include routers
 app.include_router(search.router, prefix="/api", tags=["Search"])
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(export.router, prefix="/api", tags=["Export"])
+app.include_router(files.router, prefix="/api", tags=["Files"])
 app.include_router(knowledge.router, prefix="/api/knowledge", tags=["Knowledge Base"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(market.router, prefix="/api", tags=["Market Analysis"])
+app.include_router(integrations.router, prefix="/api", tags=["Integrations"])
 
 
 # WebSocket endpoint for real-time agent progress updates
