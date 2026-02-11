@@ -8,6 +8,7 @@ import {
   RefreshCw,
   FileText,
   FileJson,
+  FileSpreadsheet,
   Clock,
   Database,
   CheckCircle,
@@ -25,6 +26,7 @@ const ResultsHeader = ({
   executionTime,
   cached = false,
   onExportPDF,
+  onExportExcel,
   onExportJSON,
   onReanalyze,
   exportLoading = false,
@@ -126,6 +128,16 @@ const ResultsHeader = ({
                 >
                   <FileText className="w-4 h-4" />
                   <span>Export as PDF</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onExportExcel?.();
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Export as Excel</span>
                 </button>
                 <button
                   onClick={() => {

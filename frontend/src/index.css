@@ -306,3 +306,59 @@
 .scrollbar-thin::-webkit-scrollbar-thumb {
   @apply bg-brand-border rounded-full;
 }
+
+/* ========================================
+   Light Theme Overrides
+   ======================================== */
+.light-theme {
+  color-scheme: light;
+}
+
+/* Background overrides */
+.light-theme .bg-brand-dark { background-color: #F8FAFC !important; }
+.light-theme .bg-brand-darker { background-color: #FFFFFF !important; }
+.light-theme .bg-brand-dark\/80 { background-color: rgba(248, 250, 252, 0.9) !important; }
+.light-theme .bg-brand-navy { background-color: #F1F5F9 !important; }
+.light-theme .bg-brand-slate { background-color: #E2E8F0 !important; }
+.light-theme .bg-brand-slate\/50 { background-color: rgba(226, 232, 240, 0.5) !important; }
+
+/* Text overrides */
+.light-theme .text-text-primary { color: #0F172A !important; }
+.light-theme .text-text-secondary { color: #475569 !important; }
+.light-theme .text-text-muted { color: #94A3B8 !important; }
+
+/* Border overrides */
+.light-theme .border-brand-border { border-color: #CBD5E1 !important; }
+.light-theme .border-brand-border\/30 { border-color: rgba(203, 213, 225, 0.3) !important; }
+
+/* Hover backgrounds */
+.light-theme .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.05) !important; }
+.light-theme .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.08) !important; }
+.light-theme .bg-white\/5 { background-color: rgba(0, 0, 0, 0.03) !important; }
+
+/* Scrollbar */
+.light-theme ::-webkit-scrollbar-track { background-color: #F1F5F9; }
+.light-theme ::-webkit-scrollbar-thumb { background-color: #CBD5E1; }
+
+/* Card adjustments */
+.light-theme .card { background-color: rgba(255, 255, 255, 0.8) !important; border-color: #E2E8F0 !important; }
+.light-theme .card-solid { background-color: #FFFFFF !important; border-color: #E2E8F0 !important; }
+
+/* Input */
+.light-theme .input { background-color: #F8FAFC !important; border-color: #CBD5E1 !important; color: #0F172A !important; }
+
+/* Nav item */
+.light-theme .nav-item-active { background-color: rgba(255, 230, 0, 0.08) !important; }
+
+/* Focus ring */
+.light-theme *:focus-visible { ring-offset-color: #F8FAFC; }
+
+/* Selection */
+.light-theme ::selection { background-color: #FFE600; color: #0F172A; }
+
+/* Glass - tone down for light */
+.light-theme .glass { background-color: rgba(255, 255, 255, 0.7) !important; border-color: rgba(0, 0, 0, 0.08) !important; }
+
+/* Placeholder text */
+.light-theme .placeholder-text-muted::placeholder,
+.light-theme .placeholder\:text-text-muted::placeholder { color: #94A3B8 !important; }

@@ -233,15 +233,19 @@ export const copyToClipboard = async (text) => {
  * @param {string} mimeType - MIME type
  */
 export const downloadFile = (data, filename, mimeType = 'application/octet-stream') => {
-  const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
+  const blob = data instanceof Blob ? new Blob([data], { type: mimeType }) : new Blob([data], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  link.style.display = 'none';
   document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Delay cleanup so the browser has time to start the download
+  setTimeout(() => {
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 1000);
 };
 
 /**

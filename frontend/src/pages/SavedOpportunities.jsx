@@ -9,6 +9,8 @@ import {
   Calendar,
   ChevronRight,
   Eye,
+  StickyNote,
+  ChevronDown,
 } from 'lucide-react';
 import useAppStore from '../store';
 import { ROUTES } from '../utils/constants';
@@ -18,25 +20,57 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import SearchInput from '../components/common/SearchInput';
+import EmptyState from '../components/common/EmptyState';
 import { CompositeScoreRing } from '../components/scoring';
 import { OpportunityDetailPanel } from '../components/results';
+
+const STATUS_OPTIONS = [
+  { value: 'none', label: 'No Status', color: '#64748B' },
+  { value: 'investigating', label: 'Investigating', color: '#00B4D8' },
+  { value: 'shortlisted', label: 'Shortlisted', color: '#FFE600' },
+  { value: 'in_development', label: 'In Development', color: '#10B981' },
+  { value: 'deprioritized', label: 'Deprioritized', color: '#94A3B8' },
+];
 
 const SavedOpportunities = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortByField, setSortByField] = useState('savedAt');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [viewingOpportunity, setViewingOpportunity] = useState(null);
+  const [expandedNotes, setExpandedNotes] = useState(new Set());
 
-  const { savedOpportunities, removeOpportunity, saveOpportunity } = useAppStore();
+  const {
+    savedOpportunities,
+    removeOpportunity,
+    saveOpportunity,
+    updateOpportunityStatus,
+    updateOpportunityNotes,
+  } = useAppStore();
+
+  const toggleNotes = (id) => {
+    setExpandedNotes(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Filter and sort
-  const filteredOpportunities = searchQuery
-    ? savedOpportunities.filter(
-        (opp) =>
-          opp.indication.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          opp.drugName?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : savedOpportunities;
+  let filteredOpportunities = savedOpportunities;
+  if (searchQuery) {
+    filteredOpportunities = filteredOpportunities.filter(
+      (opp) =>
+        opp.indication.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        opp.drugName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+  if (filterStatus !== 'all') {
+    filteredOpportunities = filteredOpportunities.filter(
+      (opp) => (opp.status || 'none') === filterStatus
+    );
+  }
 
   const sortedOpportunities = sortBy(
     filteredOpportunities,
@@ -75,24 +109,13 @@ const SavedOpportunities = () => {
   if (savedOpportunities.length === 0) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="text-center py-16">
-          <div className="w-16 h-16 bg-brand-slate rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Bookmark className="w-8 h-8 text-text-muted" />
-          </div>
-          <h2 className="text-xl font-semibold text-text-primary mb-2">
-            No Saved Opportunities
-          </h2>
-          <p className="text-text-secondary mb-6">
-            Bookmark opportunities from search results to save them here
-          </p>
-          <Button
-            variant="primary"
-            onClick={() => navigate(ROUTES.SEARCH)}
-            leftIcon={Search}
-          >
-            Start a Search
-          </Button>
-        </div>
+        <EmptyState
+          variant="saved"
+          title="No Saved Opportunities"
+          description="Bookmark promising opportunities from search results to track and manage them here."
+          actionLabel="Start a Search"
+          onAction={() => navigate(ROUTES.SEARCH)}
+        />
       </div>
     );
   }
@@ -116,6 +139,16 @@ const SavedOpportunities = () => {
             size="sm"
             className="w-48"
           />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 bg-brand-darker border border-brand-border rounded-lg text-sm text-text-secondary focus:outline-none focus:border-brand-yellow/50"
+          >
+            <option value="all">All Statuses</option>
+            {STATUS_OPTIONS.map(s => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
           <select
             value={sortByField}
             onChange={(e) => setSortByField(e.target.value)}
@@ -151,14 +184,27 @@ const SavedOpportunities = () => {
                     >
                       <Card
                         hover
-                        onClick={() => handleViewOpportunity(opp)}
                         className="group cursor-pointer"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between" onClick={() => handleViewOpportunity(opp)}>
                           <div className="flex-1 min-w-0 mr-4">
-                            <h4 className="font-semibold text-text-primary mb-1 truncate">
-                              {opp.indication}
-                            </h4>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-semibold text-text-primary truncate">
+                                {opp.indication}
+                              </h4>
+                              {/* Status badge */}
+                              {opp.status && opp.status !== 'none' && (() => {
+                                const st = STATUS_OPTIONS.find(s => s.value === opp.status);
+                                return st ? (
+                                  <span
+                                    className="text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                                    style={{ backgroundColor: `${st.color}20`, color: st.color }}
+                                  >
+                                    {st.label}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                             <div className="flex items-center gap-2 text-sm text-text-muted mb-3">
                               <Calendar className="w-3.5 h-3.5" />
                               <span>Saved {formatTimeAgo(opp.savedAt)}</span>
@@ -179,30 +225,74 @@ const SavedOpportunities = () => {
                           <CompositeScoreRing score={score} size="sm" animated={false} />
                         </div>
 
-                        {/* Actions */}
-                        <div className="mt-4 pt-3 border-t border-brand-border flex items-center justify-between">
+                        {/* Status + Notes row */}
+                        <div className="mt-3 pt-3 border-t border-brand-border/50 flex items-center gap-2">
+                          <select
+                            value={opp.status || 'none'}
+                            onChange={(e) => { e.stopPropagation(); updateOpportunityStatus(opp.id, e.target.value); }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2 py-1 bg-brand-darker border border-brand-border rounded-md text-[11px] text-text-secondary focus:outline-none focus:border-brand-yellow/50 cursor-pointer"
+                          >
+                            {STATUS_OPTIONS.map(s => (
+                              <option key={s.value} value={s.value}>{s.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleNotes(opp.id); }}
+                            className={cn(
+                              'flex items-center gap-1 px-2 py-1 text-[11px] rounded-md transition-colors',
+                              expandedNotes.has(opp.id)
+                                ? 'text-brand-yellow bg-brand-yellow/10'
+                                : 'text-text-muted hover:text-text-primary hover:bg-white/5'
+                            )}
+                          >
+                            <StickyNote className="w-3 h-3" />
+                            {opp.notes ? 'Notes' : 'Add Note'}
+                          </button>
+                          <div className="flex-1" />
                           <button
                             onClick={(e) => handleRemove(opp, e)}
-                            className="text-sm text-text-muted hover:text-error transition-colors flex items-center gap-1"
+                            className="text-[11px] text-text-muted hover:text-error transition-colors flex items-center gap-1"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Remove
+                            <Trash2 className="w-3 h-3" />
                           </button>
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={(e) => handleGoToResults(opp, e)}
-                              className="text-sm text-text-muted hover:text-brand-teal transition-colors flex items-center gap-1"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Re-analyze
-                            </button>
-                            <span className="text-sm text-brand-yellow flex items-center gap-1 group-hover:gap-2 transition-all">
-                              <Eye className="w-3.5 h-3.5" />
-                              View saved
-                              <ChevronRight className="w-4 h-4" />
-                            </span>
-                          </div>
+                          <button
+                            onClick={(e) => handleGoToResults(opp, e)}
+                            className="text-[11px] text-text-muted hover:text-brand-teal transition-colors flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
+                          <span
+                            onClick={() => handleViewOpportunity(opp)}
+                            className="text-[11px] text-brand-yellow flex items-center gap-1 group-hover:gap-1.5 transition-all cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            View
+                            <ChevronRight className="w-3 h-3" />
+                          </span>
                         </div>
+
+                        {/* Expandable notes */}
+                        <AnimatePresence>
+                          {expandedNotes.has(opp.id) && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <textarea
+                                value={opp.notes || ''}
+                                onChange={(e) => updateOpportunityNotes(opp.id, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Add notes about this opportunity..."
+                                className="mt-2 w-full px-3 py-2 bg-brand-darker border border-brand-border rounded-lg text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-brand-yellow/50 resize-none"
+                                rows={3}
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </Card>
                     </motion.div>
                   );

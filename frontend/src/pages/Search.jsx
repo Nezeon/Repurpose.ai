@@ -8,6 +8,7 @@ import { searchDrug } from '../services/api';
 import { generateSessionId } from '../utils/helpers';
 import { ROUTES } from '../utils/constants';
 import { SearchBox, SearchProgress } from '../components/search';
+import DrugPreviewCard from '../components/search/DrugPreviewCard';
 import Card from '../components/common/Card';
 
 const Search = () => {
@@ -80,12 +81,28 @@ const Search = () => {
 
       setSearchResults(results);
 
-      // Add to history
+      // Compute average 4D scores from enhanced indications for comparison feature
+      const indications = results.enhanced_indications || [];
+      const avgScore = (field) => {
+        const scores = indications
+          .map(ind => ind.composite_score?.[field]?.score ?? ind.composite_score?.[field])
+          .filter(s => typeof s === 'number');
+        return scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : 0;
+      };
+
+      // Add to history with scores
       addToHistory({
         drugName: drug.trim(),
         timestamp: new Date().toISOString(),
         opportunityCount: results.enhanced_indications?.length || results.ranked_indications?.length || 0,
         cached: results.cached || false,
+        scores: {
+          overall: avgScore('overall_score'),
+          scientific_evidence: avgScore('scientific_evidence'),
+          market_opportunity: avgScore('market_opportunity'),
+          competitive_landscape: avgScore('competitive_landscape'),
+          development_feasibility: avgScore('development_feasibility'),
+        },
       });
 
       // Navigate to results
@@ -116,9 +133,9 @@ const Search = () => {
           Drug Repurposing Analysis
         </h1>
         <p className="text-text-secondary max-w-lg mx-auto">
-          Enter a drug name to discover potential new therapeutic indications
-          using AI-powered analysis of scientific literature, clinical trials,
-          and bioactivity data.
+          Enter a drug name to discover new therapeutic indications using our
+          Master Agent orchestrating 7 specialized worker agents across patents,
+          clinical trials, market data, and scientific literature.
         </p>
       </motion.div>
 
@@ -137,6 +154,11 @@ const Search = () => {
             placeholder="Enter drug name (e.g., Metformin, Aspirin, Ibuprofen)..."
             recentSearches={searchHistory}
           />
+
+          {/* Drug Preview Card */}
+          {drugName.trim().length >= 3 && (
+            <DrugPreviewCard drugName={drugName.trim()} searchHistory={searchHistory} />
+          )}
 
           {error && (
             <motion.div
@@ -177,9 +199,9 @@ const Search = () => {
             <div className="w-10 h-10 bg-info/20 rounded-xl flex items-center justify-center mb-3">
               <Sparkles className="w-5 h-5 text-info" />
             </div>
-            <h3 className="font-semibold text-text-primary mb-1">15+ Data Sources</h3>
+            <h3 className="font-semibold text-text-primary mb-1">7 Worker Agents</h3>
             <p className="text-sm text-text-secondary">
-              Aggregates evidence from PubMed, ClinicalTrials.gov, ChEMBL, FDA, and more.
+              IQVIA, EXIM, Patent, Clinical Trials, Internal, Web Intelligence, and Report agents.
             </p>
           </Card>
 

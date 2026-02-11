@@ -1,11 +1,85 @@
-import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar, Header, MobileNav } from '../components/layout';
 import { X } from 'lucide-react';
+import CommandPalette from '../components/common/CommandPalette';
+import ShortcutsModal from '../components/common/ShortcutsModal';
+import { ToastContainer } from '../components/common/NotificationCenter';
+import OnboardingTour from '../components/common/OnboardingTour';
+import { ROUTES } from '../utils/constants';
+import useAppStore from '../store';
 
 const MainLayout = () => {
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const theme = useAppStore((s) => s.theme);
+
+  // Apply theme class to document
+  useEffect(() => {
+    document.documentElement.classList.toggle('light-theme', theme === 'light');
+  }, [theme]);
+
+  // Global keyboard shortcuts
+  const handleGlobalKeyDown = useCallback((e) => {
+    const tag = e.target.tagName.toLowerCase();
+    const isInput = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+
+    // Ctrl+K — Command Palette (always)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      setCommandPaletteOpen(prev => !prev);
+      return;
+    }
+
+    // Ctrl+/ — Focus chat input
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      e.preventDefault();
+      navigate(ROUTES.CHAT);
+      return;
+    }
+
+    // Ctrl+Shift+N — New search
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'N') {
+      e.preventDefault();
+      navigate(ROUTES.SEARCH);
+      return;
+    }
+
+    // Ctrl+Shift+D — Dashboard
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+      e.preventDefault();
+      navigate(ROUTES.DASHBOARD);
+      return;
+    }
+
+    // Ctrl+Shift+H — History
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'H') {
+      e.preventDefault();
+      navigate(ROUTES.HISTORY);
+      return;
+    }
+
+    // ? — Shortcuts (only when not in input)
+    if (!isInput && e.key === '?' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      setShortcutsOpen(prev => !prev);
+      return;
+    }
+
+    // Escape — close open modals
+    if (e.key === 'Escape') {
+      if (commandPaletteOpen) setCommandPaletteOpen(false);
+      if (shortcutsOpen) setShortcutsOpen(false);
+    }
+  }, [navigate, commandPaletteOpen, shortcutsOpen]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [handleGlobalKeyDown]);
 
   return (
     <div className="flex h-screen bg-brand-dark overflow-hidden">
@@ -18,7 +92,6 @@ const MainLayout = () => {
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -26,8 +99,6 @@ const MainLayout = () => {
               onClick={() => setMobileMenuOpen(false)}
               className="lg:hidden fixed inset-0 bg-black/60 z-40"
             />
-
-            {/* Sidebar */}
             <motion.div
               initial={{ x: -280 }}
               animate={{ x: 0 }}
@@ -53,7 +124,6 @@ const MainLayout = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuClick={() => setMobileMenuOpen(true)} />
 
-        {/* Page Content */}
         <main className="flex-1 overflow-auto pb-20 lg:pb-0">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -65,9 +135,14 @@ const MainLayout = () => {
           </motion.div>
         </main>
 
-        {/* Mobile Navigation */}
         <MobileNav />
       </div>
+
+      {/* Global Overlays */}
+      <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
+      <ShortcutsModal isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <ToastContainer />
+      <OnboardingTour />
     </div>
   );
 };

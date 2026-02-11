@@ -16,6 +16,7 @@ import {
   Layers,
   Globe,
   Boxes,
+  TrendingUp,
   CheckCircle,
   XCircle,
   Loader2,
@@ -42,6 +43,7 @@ const icons = {
   Layers,
   Globe,
   Boxes,
+  TrendingUp,
 };
 
 const statusIcons = {

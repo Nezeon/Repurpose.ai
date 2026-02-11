@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BarChart3, FileText, Sparkles, Layers } from 'lucide-react';
+import { BarChart3, FileText, Sparkles, Layers, Shield, Share2 } from 'lucide-react';
 import useAppStore from '../store';
-import { searchDrug, exportPDF, exportJSON } from '../services/api';
+import { searchDrug, exportPDF, exportExcel, exportJSON } from '../services/api';
 import { ROUTES } from '../utils/constants';
 import { downloadFile } from '../utils/helpers';
 import {
@@ -12,12 +12,15 @@ import {
   EvidencePanel,
   AIInsights,
   OpportunityDetailPanel,
+  StrategicBrief,
+  RegulatoryPathway,
 } from '../components/results';
 import { ScoreBreakdown, InsightCard } from '../components/scoring';
 import { MarketOverview, CompetitorList, MarketDashboard } from '../components/market';
-import { SourceDistribution, RadarChart } from '../components/visualizations';
+import { SourceDistribution, RadarChart, EvidenceGraph } from '../components/visualizations';
 import Tabs from '../components/common/Tabs';
 import Skeleton from '../components/common/Skeleton';
+import ReportPreviewModal from '../components/common/ReportPreviewModal';
 
 const Results = () => {
   const { drugName } = useParams();
@@ -29,6 +32,8 @@ const Results = () => {
   const [detailOpportunity, setDetailOpportunity] = useState(null);
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState('');
 
   const {
     searchResults,
@@ -77,9 +82,30 @@ const Results = () => {
     setExportLoading(true);
     try {
       const blob = await exportPDF(searchResults);
-      downloadFile(blob, `${drugName}_analysis.pdf`, 'application/pdf');
+      // Show preview instead of direct download
+      setPreviewBlob(blob);
+      setPreviewTitle(`${drugName} — Full Analysis Report`);
     } catch (err) {
       console.error('PDF export failed:', err);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handlePreviewDownload = () => {
+    if (previewBlob) {
+      downloadFile(previewBlob, `${drugName}_analysis.pdf`, 'application/pdf');
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!searchResults) return;
+    setExportLoading(true);
+    try {
+      const blob = await exportExcel(searchResults);
+      downloadFile(blob, `${drugName}_analysis.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    } catch (err) {
+      console.error('Excel export failed:', err);
     } finally {
       setExportLoading(false);
     }
@@ -178,6 +204,8 @@ const Results = () => {
     { id: 'opportunities', label: 'Opportunities', icon: Layers, badge: opportunities.length },
     { id: 'market', label: 'Market Analysis', icon: BarChart3 },
     { id: 'evidence', label: 'Evidence', icon: FileText, badge: totalEvidence },
+    { id: 'graph', label: 'Graph', icon: Share2 },
+    { id: 'strategy', label: 'Strategy', icon: Shield },
     { id: 'insights', label: 'AI Insights', icon: Sparkles },
   ];
 
@@ -216,6 +244,7 @@ const Results = () => {
         executionTime={executionTime}
         cached={cached}
         onExportPDF={handleExportPDF}
+        onExportExcel={handleExportExcel}
         onExportJSON={handleExportJSON}
         onReanalyze={handleReanalyze}
         exportLoading={exportLoading}
@@ -322,6 +351,55 @@ const Results = () => {
           </motion.div>
         )}
 
+        {/* Graph tab */}
+        {activeTab === 'graph' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <EvidenceGraph
+              drugName={drugName}
+              opportunities={opportunities}
+              allEvidence={allEvidence}
+            />
+          </motion.div>
+        )}
+
+        {/* Strategy tab */}
+        {activeTab === 'strategy' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            {/* Strategic Brief */}
+            <StrategicBrief
+              opportunities={opportunities}
+              synthesis={synthesis}
+              drugName={drugName}
+              totalEvidence={totalEvidence}
+            />
+
+            {/* Regulatory Pathway for top opportunity */}
+            {opportunities.length > 0 && (
+              <div className="grid lg:grid-cols-2 gap-6">
+                {opportunities.slice(0, 2).map((opp, i) => (
+                  <RegulatoryPathway
+                    key={i}
+                    indication={opp.indication}
+                    drugName={drugName}
+                    score={opp.composite_score?.overall_score || 0}
+                    evidenceCount={opp.evidence_count || 0}
+                    scientificScore={opp.composite_score?.scientific_evidence?.score || 0}
+                    feasibilityScore={opp.composite_score?.development_feasibility?.score || 0}
+                    marketData={opp.composite_score?.market_opportunity || {}}
+                  />
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {/* AI Insights tab */}
         {activeTab === 'insights' && (
           <motion.div
@@ -351,6 +429,15 @@ const Results = () => {
         onSave={handleSaveOpportunity}
         isSaved={detailOpportunity ? savedIds.includes(detailOpportunity.indication) : false}
         enhancedOpportunity={detailEnhancedOpportunity}
+      />
+
+      {/* Report Preview Modal */}
+      <ReportPreviewModal
+        isOpen={!!previewBlob}
+        onClose={() => setPreviewBlob(null)}
+        pdfBlob={previewBlob}
+        title={previewTitle}
+        onDownload={handlePreviewDownload}
       />
     </div>
   );

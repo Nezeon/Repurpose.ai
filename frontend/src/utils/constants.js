@@ -47,7 +47,7 @@ export const DIMENSION_CONFIG = {
   },
 };
 
-// Agent configuration (all 15 internal agents for pipeline progress tracking)
+// Agent configuration (all pipeline agents for progress tracking)
 export const AGENTS = [
   { id: 'LiteratureAgent', name: 'PubMed', icon: 'BookOpen', description: 'PubMed & scientific literature', eyGroup: 'web_intelligence' },
   { id: 'ClinicalTrialsAgent', name: 'Clinical Trials', icon: 'Stethoscope', description: 'ClinicalTrials.gov pipeline', eyGroup: 'clinical_trials' },
@@ -64,6 +64,9 @@ export const AGENTS = [
   { id: 'RxNormAgent', name: 'RxNorm', icon: 'Layers', description: 'Drug nomenclature mapping', eyGroup: 'clinical_trials' },
   { id: 'WHOAgent', name: 'WHO', icon: 'Globe', description: 'WHO essential medicines list', eyGroup: 'web_intelligence' },
   { id: 'DrugBankAgent', name: 'DrugBank', icon: 'Boxes', description: 'Comprehensive drug database', eyGroup: 'web_intelligence' },
+  { id: 'IQVIAPipelineAgent', name: 'IQVIA Market', icon: 'TrendingUp', description: 'Market size, CAGR, unmet need', eyGroup: 'iqvia_insights' },
+  { id: 'EXIMPipelineAgent', name: 'EXIM Trade', icon: 'Globe', description: 'Import-export trade data', eyGroup: 'exim_trade' },
+  { id: 'WebIntelligencePipelineAgent', name: 'Web Intel', icon: 'BookOpen', description: 'Guidelines, RWE, news, publications', eyGroup: 'web_intelligence' },
 ];
 
 // EY Techathon agent groupings (7 logical agents shown to evaluators)
@@ -72,13 +75,13 @@ export const EY_AGENT_GROUPS = {
     name: 'IQVIA Insights Agent',
     icon: 'TrendingUp',
     description: 'Market size, CAGR, competitor analysis, and commercial viability',
-    agents: ['MarketDataAgent', 'MarketAnalyzer'],
+    agents: ['IQVIAPipelineAgent'],
   },
   exim_trade: {
     name: 'EXIM Trade Agent',
     icon: 'Globe',
     description: 'Import-export trade data, supply chain analysis, geographic arbitrage',
-    agents: ['EXIMAgent'],
+    agents: ['EXIMPipelineAgent'],
   },
   patent_landscape: {
     name: 'Patent Landscape Agent',
@@ -102,7 +105,7 @@ export const EY_AGENT_GROUPS = {
     name: 'Web Intelligence Agent',
     icon: 'BookOpen',
     description: 'Literature, targets, pathways, proteins, guidelines, and publications',
-    agents: ['LiteratureAgent', 'SemanticScholarAgent', 'OpenTargetsAgent', 'BioactivityAgent', 'KEGGAgent', 'UniProtAgent', 'WHOAgent', 'DrugBankAgent'],
+    agents: ['LiteratureAgent', 'SemanticScholarAgent', 'OpenTargetsAgent', 'BioactivityAgent', 'KEGGAgent', 'UniProtAgent', 'WHOAgent', 'DrugBankAgent', 'WebIntelligencePipelineAgent'],
   },
   report_generator: {
     name: 'Report Generator Agent',
@@ -128,6 +131,7 @@ export const ROUTES = {
   RESULTS: '/results',
   HISTORY: '/history',
   SAVED: '/saved',
+  COMPARE: '/compare',
   INTEGRATIONS: '/integrations',
   SETTINGS: '/settings',
   LOGIN: '/login',
@@ -143,6 +147,7 @@ export const NAV_ITEMS = {
   ],
   intelligence: [
     { path: ROUTES.SAVED, label: 'Saved Opportunities', icon: 'Bookmark' },
+    { path: ROUTES.COMPARE, label: 'Drug Comparison', icon: 'GitCompareArrows' },
     { path: ROUTES.RESULTS, label: 'Market Insights', icon: 'TrendingUp' },
   ],
   configuration: [

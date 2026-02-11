@@ -17,6 +17,7 @@ import time
 
 from app.models.schemas import SearchResponse
 from app.utils.logger import get_logger
+from app.archive.report_archive_manager import ReportArchiveManager
 
 
 class OpportunityExportRequest(BaseModel):
@@ -28,6 +29,9 @@ class OpportunityExportRequest(BaseModel):
 
 logger = get_logger("api.export")
 router = APIRouter()
+
+# Singleton archive manager
+archive = ReportArchiveManager()
 
 
 @router.post("/export/pdf")
@@ -61,6 +65,17 @@ def export_pdf(result: SearchResponse) -> StreamingResponse:
         # Generate PDF
         logger.info(f"[{thread_name}] Starting PDF generation...")
         pdf_buffer = generate_pdf_report(result)
+
+        # Archive the report
+        try:
+            archive.archive_report(
+                pdf_bytes=pdf_buffer,
+                drug_name=result.drug_name,
+                report_type="full_report",
+                session_id=getattr(result, "session_id", None),
+            )
+        except Exception as archive_err:
+            logger.warning(f"[{thread_name}] Failed to archive report (non-blocking): {archive_err}")
 
         # Create filename
         filename = f"{result.drug_name.replace(' ', '_')}_repurposing_report.pdf"
@@ -114,7 +129,18 @@ def export_opportunity_pdf(request: OpportunityExportRequest) -> StreamingRespon
             request.enhanced_opportunity,
         )
 
+        # Archive the report
         indication = request.opportunity.get('indication', 'opportunity')
+        try:
+            archive.archive_report(
+                pdf_bytes=pdf_buffer,
+                drug_name=request.drug_name,
+                report_type="opportunity_report",
+                indication=indication,
+            )
+        except Exception as archive_err:
+            logger.warning(f"[{thread_name}] Failed to archive opportunity report (non-blocking): {archive_err}")
+
         safe_indication = indication.replace(' ', '_').replace('/', '_')[:40]
         filename = f"{request.drug_name.replace(' ', '_')}_{safe_indication}_report.pdf"
 
@@ -140,6 +166,61 @@ def export_opportunity_pdf(request: OpportunityExportRequest) -> StreamingRespon
         elapsed = time.time() - start_time
         logger.error(f"[{thread_name}] Opportunity PDF export failed after {elapsed:.2f}s: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Opportunity PDF export failed: {str(e)}")
+
+
+@router.post("/export/excel")
+def export_excel(result: SearchResponse) -> StreamingResponse:
+    """
+    Export search results to Excel format with multiple sheets.
+
+    NOTE: This is a SYNC endpoint (like PDF export).
+    """
+    start_time = time.time()
+    thread_name = threading.current_thread().name
+
+    logger.info(f"[{thread_name}] Excel export requested for: {result.drug_name}")
+
+    try:
+        from app.utils.excel_generator import generate_excel_report
+
+        logger.info(f"[{thread_name}] Starting Excel generation...")
+        excel_buffer = generate_excel_report(result)
+
+        # Archive the report
+        try:
+            archive.archive_report(
+                pdf_bytes=excel_buffer,
+                drug_name=result.drug_name,
+                report_type="excel_report",
+                session_id=getattr(result, "session_id", None),
+            )
+        except Exception as archive_err:
+            logger.warning(f"[{thread_name}] Failed to archive Excel report (non-blocking): {archive_err}")
+
+        filename = f"{result.drug_name.replace(' ', '_')}_repurposing_report.xlsx"
+
+        elapsed = time.time() - start_time
+        logger.info(f"[{thread_name}] Excel generated: {filename} ({len(excel_buffer):,} bytes) in {elapsed:.2f}s")
+
+        return StreamingResponse(
+            io.BytesIO(excel_buffer),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+
+    except ImportError as e:
+        logger.error(f"[{thread_name}] Excel generator not available: {e}")
+        raise HTTPException(
+            status_code=501,
+            detail="Excel export not available. Install dependency: pip install openpyxl"
+        )
+
+    except Exception as e:
+        elapsed = time.time() - start_time
+        logger.error(f"[{thread_name}] Excel export failed after {elapsed:.2f}s: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Excel export failed: {str(e)}")
 
 
 @router.post("/export/json")

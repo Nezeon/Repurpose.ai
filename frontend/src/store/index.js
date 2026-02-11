@@ -90,12 +90,30 @@ export const useAppStore = create(
 
         clearSavedOpportunities: () => set({ savedOpportunities: [] }),
 
+        updateOpportunityStatus: (id, status) =>
+          set((state) => ({
+            savedOpportunities: state.savedOpportunities.map((o) =>
+              o.id === id ? { ...o, status } : o
+            ),
+          })),
+
+        updateOpportunityNotes: (id, notes) =>
+          set((state) => ({
+            savedOpportunities: state.savedOpportunities.map((o) =>
+              o.id === id ? { ...o, notes } : o
+            ),
+          })),
+
         // ===================
         // UI State
         // ===================
         sidebarCollapsed: false,
         toggleSidebar: () =>
           set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+        theme: 'dark',
+        toggleTheme: () =>
+          set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
 
         activeTab: 'opportunities',
         setActiveTab: (tab) => set({ activeTab: tab }),
@@ -198,6 +216,7 @@ export const useAppStore = create(
           searchHistory: state.searchHistory,
           savedOpportunities: state.savedOpportunities,
           sidebarCollapsed: state.sidebarCollapsed,
+          theme: state.theme,
         }),
       }
     ),

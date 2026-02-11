@@ -29,7 +29,22 @@ export const ENDPOINTS = {
   // Export endpoints
   EXPORT_PDF: '/api/export/pdf',
   EXPORT_OPPORTUNITY_PDF: '/api/export/opportunity-pdf',
+  EXPORT_EXCEL: '/api/export/excel',
   EXPORT_JSON: '/api/export/json',
+
+  // Compare endpoint
+  COMPARE: '/api/compare',
+
+  // Reports (archival) endpoints
+  REPORTS_LIST: '/api/reports',
+  REPORTS_FOR_DRUG: (drugName) => `/api/reports/drug/${encodeURIComponent(drugName)}`,
+  REPORT_DOWNLOAD: (reportId) => `/api/reports/${reportId}/download`,
+  REPORT_DELETE: (reportId) => `/api/reports/${reportId}`,
+
+  // Conversation history endpoints
+  CONVERSATIONS_LIST: '/api/chat/conversations',
+  CONVERSATION_GET: (id) => `/api/chat/conversations/${id}`,
+  CONVERSATION_DELETE: (id) => `/api/chat/conversations/${id}`,
 
   // Auth endpoints
   AUTH_REGISTER: '/api/auth/register',

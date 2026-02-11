@@ -6,4 +6,5 @@ export { default as History } from './History';
 export { default as SavedOpportunities } from './SavedOpportunities';
 export { default as Integrations } from './Integrations';
 export { default as Settings } from './Settings';
+export { default as Compare } from './Compare';
 export { default as Login } from './Login';

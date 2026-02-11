@@ -10,6 +10,7 @@ import {
   Plug,
   Sparkles,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { ROUTES } from '../../utils/constants';
@@ -17,18 +18,26 @@ import Card from '../common/Card';
 
 const actions = [
   {
-    id: 'search',
-    label: 'New Search',
-    description: 'Analyze a drug',
-    icon: Search,
+    id: 'chat',
+    label: 'AI Assistant',
+    description: 'Chat with agents',
+    icon: MessageSquare,
     color: '#FFE600',
-    route: ROUTES.SEARCH,
+    route: ROUTES.CHAT,
     primary: true,
+  },
+  {
+    id: 'search',
+    label: 'Drug Search',
+    description: 'Full pipeline',
+    icon: Search,
+    color: '#00D4AA',
+    route: ROUTES.SEARCH,
   },
   {
     id: 'history',
     label: 'History',
-    description: 'Past searches',
+    description: 'Searches & reports',
     icon: Clock,
     color: '#00B4D8',
     route: ROUTES.HISTORY,
@@ -38,16 +47,8 @@ const actions = [
     label: 'Saved',
     description: 'Bookmarked items',
     icon: Bookmark,
-    color: '#00D4AA',
-    route: ROUTES.SAVED,
-  },
-  {
-    id: 'integrations',
-    label: 'Integrations',
-    description: 'Data sources',
-    icon: Plug,
     color: '#A78BFA',
-    route: ROUTES.INTEGRATIONS,
+    route: ROUTES.SAVED,
   },
 ];
 

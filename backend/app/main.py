@@ -34,6 +34,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -181,7 +182,7 @@ async def health_check():
 
 
 # API Routes
-from app.api.routes import search, chat, export, knowledge, auth, market, integrations, files
+from app.api.routes import search, chat, export, knowledge, auth, market, integrations, files, reports, drug_info, compare
 from app.api.websocket import websocket_endpoint
 
 # Include routers
@@ -193,6 +194,9 @@ app.include_router(knowledge.router, prefix="/api/knowledge", tags=["Knowledge B
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(market.router, prefix="/api", tags=["Market Analysis"])
 app.include_router(integrations.router, prefix="/api", tags=["Integrations"])
+app.include_router(reports.router, prefix="/api", tags=["Reports"])
+app.include_router(drug_info.router, prefix="/api", tags=["Drug Info"])
+app.include_router(compare.router, prefix="/api", tags=["Compare"])
 
 
 # WebSocket endpoint for real-time agent progress updates

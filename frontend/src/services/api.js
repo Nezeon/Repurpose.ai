@@ -110,6 +110,18 @@ export const clearDrugCache = async (drugName) => {
 };
 
 /**
+ * Compare 2-3 drugs using cached pipeline results
+ * @param {Array<string>} drugNames - Array of 2-3 drug names
+ * @returns {Promise<object>} Comparison data with scores, overlapping indications, etc.
+ */
+export const compareDrugs = async (drugNames) => {
+  const response = await api.post(ENDPOINTS.COMPARE, {
+    drug_names: drugNames,
+  });
+  return response.data;
+};
+
+/**
  * Send chat message
  * @param {string} question - User's question
  * @param {object} context - Search context
@@ -252,6 +264,84 @@ export const configureIntegration = async (integrationId, config) => {
  */
 export const testIntegration = async (integrationId) => {
   const response = await api.post(ENDPOINTS.INTEGRATION_TEST(integrationId));
+  return response.data;
+};
+
+// Report Archive Methods
+
+/**
+ * Get list of archived reports
+ * @param {number} limit - Max reports to return
+ * @returns {Promise<object>} { total, reports }
+ */
+export const getArchivedReports = async (limit = 50) => {
+  const response = await api.get(`${ENDPOINTS.REPORTS_LIST}?limit=${limit}`);
+  return response.data;
+};
+
+/**
+ * Download an archived report
+ * @param {string} reportId - Report ID
+ * @returns {Promise<Blob>} File blob
+ */
+export const downloadArchivedReport = async (reportId) => {
+  const response = await api.get(ENDPOINTS.REPORT_DOWNLOAD(reportId), {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+/**
+ * Delete an archived report
+ * @param {string} reportId - Report ID
+ * @returns {Promise<object>} Confirmation
+ */
+export const deleteArchivedReport = async (reportId) => {
+  const response = await api.delete(ENDPOINTS.REPORT_DELETE(reportId));
+  return response.data;
+};
+
+/**
+ * Export results as Excel
+ * @param {object} searchResults - Search results to export
+ * @returns {Promise<Blob>} Excel file blob
+ */
+export const exportExcel = async (searchResults) => {
+  const response = await api.post(ENDPOINTS.EXPORT_EXCEL, searchResults, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+// Conversation History Methods
+
+/**
+ * Get list of saved conversations
+ * @param {number} limit - Max conversations
+ * @returns {Promise<object>} { total, conversations }
+ */
+export const getConversations = async (limit = 50) => {
+  const response = await api.get(`${ENDPOINTS.CONVERSATIONS_LIST}?limit=${limit}`);
+  return response.data;
+};
+
+/**
+ * Get full conversation by ID
+ * @param {string} conversationId - Conversation ID
+ * @returns {Promise<object>} Conversation with messages
+ */
+export const getConversation = async (conversationId) => {
+  const response = await api.get(ENDPOINTS.CONVERSATION_GET(conversationId));
+  return response.data;
+};
+
+/**
+ * Delete a conversation
+ * @param {string} conversationId - Conversation ID
+ * @returns {Promise<object>} Confirmation
+ */
+export const deleteConversation = async (conversationId) => {
+  const response = await api.delete(ENDPOINTS.CONVERSATION_DELETE(conversationId));
   return response.data;
 };
 

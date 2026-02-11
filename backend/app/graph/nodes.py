@@ -26,6 +26,10 @@ from app.agents.rxnorm_agent import RxNormAgent
 from app.agents.who_agent import WHOAgent
 from app.agents.drugbank_agent import DrugBankAgent
 from app.agents.market_data_agent import MarketDataAgent
+# EY Worker Agent wrappers (IQVIA + EXIM Trade + Web Intelligence)
+from app.agents.iqvia_pipeline_agent import IQVIAPipelineAgent
+from app.agents.exim_pipeline_agent import EXIMPipelineAgent
+from app.agents.web_intelligence_pipeline_agent import WebIntelligencePipelineAgent
 from app.llm.llm_factory import LLMFactory, get_synthesis_prompt, get_enhanced_synthesis_prompt
 from app.scoring.evidence_scorer import EvidenceScorer
 from app.scoring.composite_scorer import CompositeScorer
@@ -84,7 +88,11 @@ async def initialize_search(state: AgentState) -> AgentState:
         # Tier 3 agents (Phase 2)
         "RxNormAgent": "pending",
         "WHOAgent": "pending",
-        "DrugBankAgent": "pending"
+        "DrugBankAgent": "pending",
+        # EY Worker Agent wrappers
+        "IQVIAPipelineAgent": "pending",
+        "EXIMPipelineAgent": "pending",
+        "WebIntelligencePipelineAgent": "pending",
     }
 
     # Initialize result containers
@@ -118,7 +126,7 @@ async def run_agents_parallel(state: AgentState) -> AgentState:
     logger.info("Running all agents in parallel...")
 
     session_id = state.get("session_id", "")
-    await _send_ws_status(state, "agents_running", "running", "Running 15 agents in parallel...")
+    await _send_ws_status(state, "agents_running", "running", "Master Agent dispatching worker agents...")
 
     # Instantiate all agents
     agents = {
@@ -140,7 +148,11 @@ async def run_agents_parallel(state: AgentState) -> AgentState:
         # Tier 3 agents (Phase 2)
         "RxNormAgent": RxNormAgent(),
         "WHOAgent": WHOAgent(),
-        "DrugBankAgent": DrugBankAgent()
+        "DrugBankAgent": DrugBankAgent(),
+        # EY Worker Agent wrappers
+        "IQVIAPipelineAgent": IQVIAPipelineAgent(),
+        "EXIMPipelineAgent": EXIMPipelineAgent(),
+        "WebIntelligencePipelineAgent": WebIntelligencePipelineAgent(),
     }
 
     async def run_single_agent(name: str, agent):

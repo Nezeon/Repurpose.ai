@@ -147,16 +147,30 @@ const MessageBubble = ({ message, onSuggestionClick }) => {
           </div>
         )}
 
-        {/* PDF Download */}
-        {message.pdf_url && (
-          <a
-            href={`${API_BASE_URL}${message.pdf_url}`}
-            download
-            className="flex items-center gap-2 px-4 py-2.5 bg-brand-yellow/10 border border-brand-yellow/20 rounded-xl hover:bg-brand-yellow/20 transition-colors"
-          >
-            <Download className="w-4 h-4 text-brand-yellow" />
-            <span className="text-sm font-medium text-brand-yellow">Download PDF Report</span>
-          </a>
+        {/* Report Downloads */}
+        {(message.pdf_url || message.excel_url) && (
+          <div className="flex flex-wrap gap-2">
+            {message.pdf_url && (
+              <a
+                href={`${API_BASE_URL}${message.pdf_url}`}
+                download
+                className="flex items-center gap-2 px-4 py-2.5 bg-brand-yellow/10 border border-brand-yellow/20 rounded-xl hover:bg-brand-yellow/20 transition-colors"
+              >
+                <Download className="w-4 h-4 text-brand-yellow" />
+                <span className="text-sm font-medium text-brand-yellow">Download PDF Report</span>
+              </a>
+            )}
+            {message.excel_url && (
+              <a
+                href={`${API_BASE_URL}${message.excel_url}`}
+                download
+                className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 border border-green-500/20 rounded-xl hover:bg-green-500/20 transition-colors"
+              >
+                <Download className="w-4 h-4 text-green-400" />
+                <span className="text-sm font-medium text-green-400">Download Excel Report</span>
+              </a>
+            )}
+          </div>
         )}
 
         {/* Suggested Follow-ups */}

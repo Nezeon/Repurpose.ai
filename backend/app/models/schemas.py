@@ -238,6 +238,7 @@ class ConversationMessage(BaseModel):
     tables: List[TableData] = Field(default_factory=list, description="Tables in this message")
     charts: List[ChartData] = Field(default_factory=list, description="Charts in this message")
     pdf_url: Optional[str] = Field(None, description="Download URL for generated PDF")
+    excel_url: Optional[str] = Field(None, description="Download URL for generated Excel")
     agent_activities: List[AgentActivity] = Field(default_factory=list, description="Agent activities")
     suggestions: List[str] = Field(default_factory=list, description="Suggested follow-up questions")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Extra metadata")
@@ -248,6 +249,7 @@ class ConversationRequest(BaseModel):
     conversation_id: Optional[str] = Field(None, description="Existing conversation ID (None for new)")
     conversation_history: List[Dict[str, str]] = Field(default_factory=list, description="Previous messages [{role, content}]")
     uploaded_file_ids: List[str] = Field(default_factory=list, description="IDs of uploaded files to reference")
+    session_id: Optional[str] = Field(None, description="WebSocket session ID for real-time agent progress")
 
 class ConversationResponse(BaseModel):
     """Rich response from the conversational chat."""
@@ -255,6 +257,7 @@ class ConversationResponse(BaseModel):
     message: ConversationMessage = Field(..., description="The assistant's response message")
     intent: str = Field("general", description="Detected intent of the user's query")
     entities: Dict[str, Any] = Field(default_factory=dict, description="Extracted entities (drugs, indications, etc.)")
+    pipeline_metadata: Optional[Dict[str, Any]] = Field(None, description="Pipeline result metadata for frontend history tracking")
 
 class FileUploadResponse(BaseModel):
     """Response from file upload."""

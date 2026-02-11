@@ -31,6 +31,9 @@ EY_AGENT_DISPLAY = {
     "DrugBankAgent": "Web Intelligence Agent",
     "MarketDataAgent": "IQVIA Insights Agent",
     "EXIMAgent": "EXIM Trade Agent",
+    "IQVIAPipelineAgent": "IQVIA Insights Agent",
+    "EXIMPipelineAgent": "EXIM Trade Agent",
+    "WebIntelligencePipelineAgent": "Web Intelligence Agent",
 }
 
 

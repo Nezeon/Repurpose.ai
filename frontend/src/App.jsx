@@ -8,6 +8,7 @@ import {
   Results,
   History,
   SavedOpportunities,
+  Compare,
   Integrations,
   Settings,
   Login,
@@ -32,6 +33,7 @@ function App() {
           <Route path="results/:drugName" element={<Results />} />
           <Route path="history" element={<History />} />
           <Route path="saved" element={<SavedOpportunities />} />
+          <Route path="compare" element={<Compare />} />
           <Route path="integrations" element={<Integrations />} />
           <Route path="settings" element={<Settings />} />
         </Route>

@@ -15,14 +15,9 @@
 11. [Validation & Evaluation Strategy](#11-validation--evaluation-strategy)
 12. [API Reference](#12-api-reference)
 13. [Frontend Architecture](#13-frontend-architecture)
-14. [Data Flow Diagrams](#14-data-flow-diagrams)
-15. [Caching Strategy](#15-caching-strategy)
-16. [Failure Handling & System Resilience](#16-failure-handling--system-resilience)
-17. [Security & Data Privacy](#17-security--data-privacy)
-18. [Configuration Guide](#18-configuration-guide)
-19. [Feature List](#19-feature-list)
-20. [Scope & Limitations](#20-scope--limitations)
-21. [Deployment Guide](#21-deployment-guide)
+14. [UX Features](#14-ux-features)
+15. [Caching Strategy & Additional Sections](#15-21-additional-sections)
+16. [EY Techathon Semi-Final Enhancements](#22-ey-techathon-semi-final-enhancements)
 
 ---
 
@@ -30,13 +25,13 @@
 
 ### What is the Drug Repurposing Platform?
 
-**Repurpose.AI** is an AI-powered conversational pharma planning assistant that identifies new therapeutic uses for existing drugs. Built for the **EY Techathon 6.0**, it features a **Master Agent orchestrator** that interprets open-ended strategic questions, routes them to **7 specialized worker agent groups** (backed by 15 internal agents), and returns rich responses with tables, charts, and downloadable PDF reports — all within a chat-first interface.
+**Repurpose.AI** is an AI-powered conversational pharma planning assistant that identifies new therapeutic uses for existing drugs. Built for the **EY Techathon 6.0**, it features a **Master Agent orchestrator** that interprets open-ended strategic questions, routes them to **7 specialized worker agent groups** (backed by 18 unified pipeline agents), and returns rich responses with tables, charts, and downloadable PDF/Excel reports — all within a chat-first interface with drug comparison, regulatory pathway advisory, conversation persistence, and report archival.
 
 ### Key Capabilities
 
 - **Conversational AI Interface**: Chat-first design with Master Agent interpreting strategic pharma questions
 - **7 EY Worker Agent Groups**: IQVIA Insights, EXIM Trade, Patent Landscape, Clinical Trials, Internal Knowledge, Web Intelligence, Report Generator
-- **15-Agent Multi-Source Evidence Collection**: Searches biomedical databases in parallel
+- **18-Agent Unified Pipeline**: 15 core agents + 3 EY wrappers (IQVIA, EXIM, Web Intel) — one brain for both Search and Chat
 - **4D Composite Scoring**: Scientific Evidence (40%), Market Opportunity (25%), Competitive Landscape (20%), Development Feasibility (15%)
 - **Score Refinement**: Enhanced scoring with comparative, scientific, and market segment data (+/-20 per dimension)
 - **Decision Rules Engine**: Whitespace detection, biosimilar opportunity flags, geographic arbitrage, unmet need analysis
@@ -46,15 +41,29 @@
 - **Free Market Data**: WHO GHO, Wikidata SPARQL, Europe PMC integration (no paid APIs required)
 - **Smart Indication Matching**: 60+ medical abbreviations, fuzzy matching, 50+ therapeutic areas
 - **Rich Chat Responses**: Inline tables, bar/radar charts, PDF download links, suggested follow-up queries
-- **Professional Reports**: Dark-themed PDF export with comparative analysis, scientific details, and visualizations
-- **Real-Time Progress**: WebSocket-based live agent activity indicators with EY-branded names
+- **Professional Reports**: Dark-themed PDF + multi-sheet Excel export with comparative analysis, scientific details, and visualizations
+- **Report Archival**: All generated reports (PDF/Excel) auto-archived with metadata for later retrieval
+- **Conversation Persistence**: Chat sessions saved to filesystem, loadable across browser sessions
+- **10 Synthetic Welcome Queries**: Pre-built strategic pharma questions for guided exploration
+- **6 Internal Documents**: Pre-loaded cardiovascular, biosimilar, API sourcing, oncology, respiratory, and CNS reports for RAG
+- **Real-Time Progress**: WebSocket-based live agent activity indicators with 7 EY Worker Agent groups
+- **Drug Comparison**: Compare 2-3 drugs side-by-side with overlapping indications and AI-generated summary
+- **Regulatory Pathway Advisor**: FDA pathway recommendations (505(b)(2), Fast Track, Orphan Drug, Breakthrough)
+- **Strategic Brief**: Executive GO/INVESTIGATE/NO-GO recommendation with timeline and cost estimates
+- **Command Palette (Ctrl+K)**: Global keyboard-driven navigation and search across the platform
+- **Keyboard Shortcuts**: 7 global shortcuts for power-user navigation
+- **Onboarding Tour**: 5-step interactive walkthrough for first-time users
+- **Notification System**: Toast notifications + persistent notification center with bell icon
+- **Evidence Graph**: Interactive SVG network visualization of drug-indication-evidence relationships
+- **Authentication**: JWT-based user registration and login system
+- **Dark/Light Theme**: Toggleable theme with persistent preference
 
 ### Business Value
 
 | Metric                   | Traditional Research | With Platform   |
 | ------------------------ | -------------------- | --------------- |
 | Time to Initial Analysis | Days to Weeks        | 15-30 seconds   |
-| Data Sources Searched    | 1-2 manually         | 15 automatically |
+| Data Sources Searched    | 1-2 manually         | 18 automatically |
 | Evidence Items Processed | Dozens               | Hundreds        |
 | Market Analysis          | Expensive consultants| Free built-in   |
 | Consistency              | Variable             | Standardized    |
@@ -79,10 +88,10 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              FRONTEND (React + Vite)                         │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌─────────────┐ │
-│  │  Chat    │  │Dashboard │  │ Search   │  │  Results   │  │   History   │ │
-│  │(default) │  │          │  │          │  │            │  │             │ │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └─────┬──────┘  └──────┬──────┘ │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────┐│
+│  │  Chat  │ │Dashbrd │ │ Search │ │Results │ │History │ │Compare │ │Login ││
+│  │(deflt) │ │        │ │        │ │        │ │        │ │        │ │      ││
+│  └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └──┬───┘│
 │       │             │              │                 │                │       │
 │       └─────────────┴──────────────┴─────────────────┴────────────────┘       │
 │                                │                                              │
@@ -106,11 +115,12 @@
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │                         API Layer (FastAPI)                          │    │
-│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌─────┐│    │
-│  │  │/api/chat   │ │/api/search │ │/api/export │ │/api/files  │ │/ws/ ││    │
-│  │  │  /message  │ │            │ │  /pdf      │ │  /upload   │ │{id} ││    │
-│  │  └──────┬─────┘ └──────┬─────┘ └──────┬─────┘ └──────┬─────┘ └──┬──┘│    │
-│  └─────────┼────────────────┼────────────────┼───────────────┼──────────┘    │
+│  │  ┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐┌──┐│
+│  │  │/api/   ││/api/   ││/api/   ││/api/   ││/api/   ││/api/   ││/api/   ││ws││
+│  │  │chat    ││search  ││export  ││reports ││compare ││drug-   ││auth    ││  ││
+│  │  │        ││        ││        ││        ││        ││info    ││        ││  ││
+│  │  └───┬────┘└───┬────┘└───┬────┘└───┬────┘└───┬────┘└───┬────┘└───┬────┘└┬─┘│
+│  └──────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼──────┘  │
 │            │                │                │               │               │
 │            ▼                │                │               │               │
 │  ┌─────────────────────┐    │                │               │               │
@@ -123,7 +133,7 @@
 │  │                    LangGraph Workflow Engine                         │    │
 │  │                                                                      │    │
 │  │   ┌──────────┐    ┌─────────────────┐    ┌───────────────────┐      │    │
-│  │   │Initialize│───▶│ Run 15 Agents   │───▶│ Aggregate Evidence│      │    │
+│  │   │Initialize│───▶│ Run 18 Agents   │───▶│ Aggregate Evidence│      │    │
 │  │   │  Search  │    │   (Parallel)    │    │                   │      │    │
 │  │   └──────────┘    └────────┬────────┘    └─────────┬─────────┘      │    │
 │  │                            │                       │                 │    │
@@ -140,7 +150,7 @@
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    15-Agent Multi-Source System                      │    │
+│  │                    18-Agent Unified Multi-Source System              │    │
 │  │                                                                      │    │
 │  │  TIER 1 - Core Agents                                               │    │
 │  │   ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐       │    │
@@ -167,6 +177,13 @@
 │  │   │   Agent    │ │   Agent    │ │   Agent    │ │   Agent    │       │    │
 │  │   └────────────┘ └────────────┘ └────────────┘ └────────────┘       │    │
 │  │                                                                      │    │
+│  │  TIER 5 - EY Pipeline Wrappers (Unified Brain)                      │    │
+│  │   ┌────────────┐ ┌────────────┐ ┌────────────┐                      │    │
+│  │   │   IQVIA    │ │   EXIM     │ │  Web Intel │                      │    │
+│  │   │ Pipeline   │ │ Pipeline   │ │  Pipeline  │                      │    │
+│  │   │  Agent     │ │  Agent     │ │   Agent    │                      │    │
+│  │   └────────────┘ └────────────┘ └────────────┘                      │    │
+│  │                                                                      │    │
 │  │  CHAT AGENTS (Orchestration Layer)                                   │    │
 │  │   ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐       │    │
 │  │   │  Master    │ │   EXIM     │ │    Web     │ │   File     │       │    │
@@ -181,6 +198,14 @@
 │  │   │ LLM Factory  │  │ 4D Composite │  │ Market Data  │              │    │
 │  │   │(Gemini/Ollama│  │   Scorer     │  │  Analyzer    │              │    │
 │  │   └──────────────┘  └──────────────┘  └──────────────┘              │    │
+│  │   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │    │
+│  │   │   Report     │  │ Conversation │  │    Excel     │              │    │
+│  │   │  Archival    │  │  Persistence │  │  Generator   │              │    │
+│  │   └──────────────┘  └──────────────┘  └──────────────┘              │    │
+│  │   ┌──────────────┐  ┌──────────────┐                               │    │
+│  │   │ Regulatory   │  │    Auth      │                               │    │
+│  │   │   Advisor    │  │  (JWT/Users) │                               │    │
+│  │   └──────────────┘  └──────────────┘                               │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -214,10 +239,12 @@
 | **API Layer**          | Request routing, validation, response formatting    |
 | **Cache Manager**      | Result caching with TTL management                  |
 | **Workflow Engine**    | Orchestrates agent execution and data processing    |
-| **15-Agent System**    | Parallel data collection from biomedical sources    |
+| **18-Agent System**    | Parallel data collection from biomedical + market + trade sources |
 | **4D Composite Scorer**| Ranks indications across 4 dimensions               |
 | **Market Data Agent**  | Free epidemiology data from WHO, Wikidata, Europe PMC|
 | **LLM Factory**        | AI synthesis with provider fallback                 |
+| **Regulatory Advisor** | FDA pathway recommendations (505(b)(2), Fast Track, Orphan) |
+| **Auth System**        | JWT authentication, user registration and login     |
 
 ---
 
@@ -229,9 +256,11 @@
 BEFORE (v2.x):   Drug Name → Fixed 15-Agent Pipeline → Dashboard
 AFTER  (v3.0):   Chat Query → Master Agent → Worker Agents → Rich Chat Response
                                            ↘ (can still trigger full pipeline for deep analysis)
+AFTER  (v3.1):   Unified Brain — both Search and Chat share same 18-agent pipeline
+                  Chat can trigger full pipeline + generate reports inline
 ```
 
-The platform was transformed from a search-only tool into a **chat-first conversational assistant**. The existing 15-agent workflow becomes one of the tools the Master Agent can invoke. For simple queries (market data, patent lookup), the Master Agent calls individual agents directly. For "analyze drug X", it triggers the full LangGraph pipeline.
+The platform was transformed from a search-only tool into a **chat-first conversational assistant**. The 18-agent unified workflow becomes one of the tools the Master Agent can invoke. For simple queries (market data, patent lookup), the Master Agent calls individual agents directly. For "analyze drug X", it triggers the full LangGraph pipeline. The **Unified Brain Architecture** ensures both Search and Chat share the same 18-agent pipeline.
 
 ### Master Agent (Conversation Orchestrator)
 
@@ -276,17 +305,17 @@ The Master Agent (`backend/app/agents/master_agent.py`) is the central intellige
 
 ### 7 EY Worker Agent Groups
 
-The 15 internal agents are organized into 7 logical groups matching EY's required agent taxonomy:
+All 18 agents are organized into 7 logical groups matching EY's required agent taxonomy. Each group now has pipeline-integrated agents that run in both Search and Chat modes:
 
 | EY Agent Group | Internal Agents | Data Sources | Key Outputs |
 |----------------|----------------|--------------|-------------|
-| **IQVIA Insights** | MarketDataAgent, MarketAnalyzer, MarketSegmentAnalyzer | WHO GHO, Wikidata, built-in estimates | Market size, CAGR, patient populations, unmet need scores |
-| **EXIM Trade** | EXIMAgent | Mock data (UN Comtrade patterns) | Import/export volumes, top countries, YoY trends, sourcing insights |
+| **IQVIA Insights** | MarketDataAgent, MarketAnalyzer, MarketSegmentAnalyzer, **IQVIAPipelineAgent** | WHO GHO, Wikidata, built-in estimates | Market size, CAGR, patient populations, unmet need scores |
+| **EXIM Trade** | EXIMAgent, **EXIMPipelineAgent** | Mock data (UN Comtrade patterns) | Import/export volumes, top countries, YoY trends, sourcing insights |
 | **Patent Landscape** | PatentAgent (USPTO), OrangeBookAgent | USPTO PatentsView API, FDA Orange Book | Patent filings, expiry timelines, FTO risk, competitive filers |
-| **Clinical Trials** | ClinicalTrialsAgent | ClinicalTrials.gov | Active trials, phase distribution, sponsor analysis |
-| **Internal Knowledge** | InternalAgent, FileUploadAgent | ChromaDB vector store, uploaded PDFs | Document summaries, relevant excerpts, context-aware Q&A |
-| **Web Intelligence** | WebIntelligenceAgent, LiteratureAgent, SemanticScholarAgent | PubMed, Semantic Scholar, web search | Guidelines, news, publications, real-world evidence |
-| **Report Generator** | PDF Generator (Playwright) | All agent outputs | Professional dark-theme PDF reports (full + single-opportunity) |
+| **Clinical Trials** | ClinicalTrialsAgent, OpenFDAAgent, DailyMedAgent, RxNormAgent | ClinicalTrials.gov, FDA, NLM | Active trials, phase distribution, adverse events, drug labels |
+| **Internal Knowledge** | InternalAgent, FileUploadAgent | ChromaDB vector store (6 pre-loaded docs + uploads) | Document summaries, relevant excerpts, context-aware Q&A |
+| **Web Intelligence** | WebIntelligenceAgent, LiteratureAgent, SemanticScholarAgent, **WebIntelligencePipelineAgent** | PubMed, Semantic Scholar, web search | Guidelines, news, publications, real-world evidence |
+| **Report Generator** | PDF Generator (Playwright), Excel Generator | All agent outputs | Dark-theme PDF reports, 4-sheet Excel exports, auto-archived |
 
 ### Response Formatter
 
@@ -463,6 +492,9 @@ All agents inherit from `BaseAgent` abstract class:
 | 4 | WHO | WHO | 50 entries | Essential medicines |
 | 4 | DrugBank | DrugBank | 50 interactions | Drug interactions |
 | 4 | Market Data | WHO GHO/Wikidata/PMC | N/A | Free epidemiology |
+| 5 | **IQVIA Pipeline** | MarketAnalyzer | 14 indications | Scans top therapeutic areas for market size, CAGR, unmet need |
+| 5 | **EXIM Pipeline** | EXIM DB | Per drug | Import-export trade data as evidence items |
+| 5 | **Web Intel Pipeline** | Web search | 6 results | Guidelines, RWE, news, publications as evidence |
 
 ### Agent Execution Flow
 
@@ -470,7 +502,7 @@ All agents inherit from `BaseAgent` abstract class:
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Parallel Agent Execution                      │
 │                                                                  │
-│   asyncio.gather() executes all 15 agents concurrently:         │
+│   asyncio.gather() executes all 18 agents concurrently:         │
 │                                                                  │
 │   ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐      │
 │   │Lit. │ │Clin.│ │Bio. │ │Pat. │ │FDA  │ │OT   │ │S.Sch│      │
@@ -480,16 +512,20 @@ All agents inherit from `BaseAgent` abstract class:
 │   │Daily│ │KEGG │ │Uni  │ │O.Bk │ │Rx   │ │WHO  │ │D.Bk │      │
 │   └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘      │
 │      │       │       │       │       │       │       │          │
-│      └───────┴───────┴───────┴───────┴───────┴───────┘          │
+│   ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐                               │
+│   │Mkt  │ │IQVIA│ │EXIM │ │W.Int│  ← EY Pipeline Wrappers       │
+│   └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘                               │
+│      │       │       │       │                                   │
+│      └───────┴───────┴───────┴───────────────────────┘          │
 │                              │                                   │
 │                              ▼                                   │
 │                    ┌─────────────────┐                          │
 │                    │ Aggregate All   │                          │
 │                    │ Evidence Items  │                          │
-│                    │ (100-400 items) │                          │
+│                    │ (150-500 items) │                          │
 │                    └─────────────────┘                          │
 │                                                                  │
-│   Total execution time: 15-30 seconds (vs 90+ sequential)       │
+│   Total execution time: 20-40 seconds (vs 120+ sequential)      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1162,13 +1198,13 @@ ABBREVIATION_MAP = {
 │        ▼                                                         │
 │  ┌───────────────┐                                              │
 │  │  initialize   │  • Set timestamp                             │
-│  │    search     │  • Initialize 15-agent progress tracking     │
+│  │    search     │  • Initialize 18-agent progress tracking     │
 │  │               │  • Prepare agent list                        │
 │  └───────┬───────┘                                              │
 │          │                                                       │
 │          ▼                                                       │
 │  ┌───────────────┐                                              │
-│  │  run_agents   │  • Execute 15 agents in parallel             │
+│  │  run_agents   │  • Execute 18 agents in parallel             │
 │  │   parallel    │  • asyncio.gather() for concurrency          │
 │  │               │  • WebSocket progress updates                │
 │  └───────┬───────┘                                              │
@@ -1285,6 +1321,48 @@ The Decision Rules Engine (`backend/app/decision/rules_engine.py`) applies strat
 - **PDF reports**: Flags included in the executive summary and opportunity deep dives
 - **Full pipeline**: Runs after `analyze_comparatives` and feeds into `synthesize`
 
+### Regulatory Pathway Advisor
+
+The Regulatory Pathway Advisor (`backend/app/decision/regulatory_advisor.py`) is a rules-based system that recommends FDA regulatory pathways for each drug repurposing opportunity.
+
+#### Pathway Recommendations
+
+| Pathway | Criteria | Timeline | Key Benefit |
+|---------|----------|----------|-------------|
+| **505(b)(2)** | Drug has existing FDA labeling for another indication | 2-3 years | Abbreviated approval, can reference existing safety data |
+| **Fast Track** | Targets serious/life-threatening condition (32+ keywords: cancer, HIV, Alzheimer's, heart failure, etc.) | Standard + expedited review | Rolling review, more frequent FDA meetings |
+| **Orphan Drug** | Targets rare disease (25+ keywords: rare, orphan, muscular dystrophy, cystic fibrosis, etc.) | Standard | 7-year market exclusivity, tax credits, fee waivers |
+| **Breakthrough Therapy** | Substantial improvement over existing treatments + preliminary clinical evidence | Standard + priority review | Intensive FDA guidance, rolling review |
+| **Standard NDA/BLA** | Default pathway when no special criteria met | 4-6 years | Full approval pathway |
+
+#### Output Structure
+
+```
+{
+    "recommended_pathway": "505(b)(2)",
+    "timeline_estimate": "2-3 years",
+    "cost_estimate": "$50M-$100M",
+    "eligibility_flags": {
+        "fast_track": true,
+        "orphan_drug": false,
+        "breakthrough": false
+    }
+}
+```
+
+#### Frontend Integration
+
+- **RegulatoryPathway.jsx** (`components/results/RegulatoryPathway.jsx`): Displays pathway recommendation cards with timeline and cost estimates for each drug-indication pair
+- **StrategicBrief.jsx** (`components/results/StrategicBrief.jsx`): Executive-level investment summary with GO / INVESTIGATE / NO-GO recommendation:
+
+| Decision | Score Threshold | Meaning |
+|----------|----------------|---------|
+| **GO** | Overall score ≥ 70 | Strong opportunity — proceed with development planning |
+| **INVESTIGATE** | Score 50-69 | Promising but needs more data — conduct targeted studies |
+| **NO-GO** | Score < 50 | Weak opportunity — deprioritize or reconsider |
+
+The Strategic Brief also includes development timeline estimates, cost ranges, top 3 opportunities summary, and key risk factors extracted from the synthesis.
+
 ---
 
 ## 11. Validation & Evaluation Strategy
@@ -1365,7 +1443,24 @@ GET  /api/files                           → List uploaded files
 ```
 POST /api/export/pdf                      → Full drug analysis PDF report
 POST /api/export/opportunity-pdf          → Single-opportunity mini report
+POST /api/export/excel                    → 4-sheet Excel report (Summary, Opportunities, Evidence, Market)
 POST /api/export/json                     → JSON data export
+```
+
+#### Report Archival
+```
+GET  /api/reports                         → List all archived reports
+GET  /api/reports/drug/{drug_name}        → Reports for specific drug
+GET  /api/reports/{report_id}             → Report metadata
+GET  /api/reports/{report_id}/download    → Download report file (PDF/Excel)
+DELETE /api/reports/{report_id}           → Delete archived report
+```
+
+#### Conversation Management
+```
+GET  /api/chat/conversations              → List all conversations (sidebar)
+GET  /api/chat/conversations/{id}         → Full conversation with messages
+DELETE /api/chat/conversations/{id}       → Delete conversation
 ```
 
 #### Integrations
@@ -1376,10 +1471,61 @@ POST /api/integrations/{id}/disable       → Disable integration
 PUT  /api/integrations/{id}/configure     → Set API key
 ```
 
+#### Drug Comparison
+```
+POST /api/compare
+{
+    "drug_names": ["Metformin", "Aspirin"]    // 2-3 drug names (must have cached results)
+}
+
+Response: CompareResponse with:
+- drugs: [{drug_name, cached, indication_count, evidence_count, scores: {overall, scientific_evidence, market_opportunity, competitive_landscape, development_feasibility}, indications: [...]}]
+- overlapping_indications: ["cancer", "diabetes", ...]
+- unique_indications: {"Metformin": [...], "Aspirin": [...]}
+- comparison_summary: "Compared 2 drugs..."
+```
+
+#### Drug Quick Lookup
+```
+GET /api/drug-info/{drug_name}
+
+Response: DrugInfoResponse with:
+- drug_name, generic_name, brand_names[], drug_class
+- mechanism, approved_indications[], manufacturer, route
+- Uses OpenFDA API with 24hr local cache (data/cache/drug_info/)
+```
+
+#### Market Analysis
+```
+POST /api/market/analyze
+{
+    "drug_name": "Metformin",
+    "indications": ["Diabetes", "Cancer"],
+    "include_competitors": true,
+    "max_indications": 10
+}
+
+Response: MarketAnalysisResponse with per-indication:
+- estimated_market_size_usd, patient_population_global, patient_population_us
+- cagr_percent, unmet_need_score, existing_treatments_count
+- average_treatment_cost_usd, potential_price_premium
+- geographic_hotspots[], key_competitors[]
+```
+
+#### Authentication
+```
+POST /api/auth/register                   → User registration (email, password, fullName, username)
+POST /api/auth/login                      → JWT login (returns access token)
+GET  /api/auth/me                         → Current user profile (requires JWT)
+GET  /api/auth/status                     → Auth system status check
+POST /api/auth/change-password            → Change password (requires JWT)
+```
+
 #### Cache Operations
 ```
 POST /api/search/cache/clear              → Clear all cache
 GET  /api/search/cache/stats              → Cache statistics
+DELETE /api/search/cache/{drug_name}      → Clear cache for specific drug
 ```
 
 ### WebSocket
@@ -1404,31 +1550,39 @@ Message Types:
 
 | Page | Route | Description |
 |------|-------|-------------|
-| **Chat** | `/chat` (default) | **Primary interface** — conversational AI with rich responses |
+| **Chat** | `/chat` (default) | **Primary interface** — conversational AI with rich responses, 10 welcome suggestions, conversation sidebar with persistence |
 | Dashboard | `/dashboard` | Overview with recent searches, quick actions |
-| Search | `/search` | Drug search with 15-agent progress |
-| Results | `/results/:drug` | Detailed results with 4D scores |
-| History | `/history` | Previous searches, delete functionality |
+| Search | `/search` | Drug search with 7 Worker Agent groups (collapsible to 18 individual sources) |
+| Results | `/results/:drug` | Detailed results with 4D scores, regulatory pathway, strategic brief |
+| History | `/history` | Previous searches + **Archived Reports tab** with download/delete |
 | Saved | `/saved` | Saved opportunities |
-| Settings | `/settings` | User preferences, cache management |
-| Integrations | `/integrations` | Data source configuration |
+| **Compare** | `/compare` | Compare 2-3 drugs side-by-side with 4D scores, overlapping/unique indications, AI summary |
+| **Login** | `/login` | User authentication — login/register toggle, email + password + profile fields |
+| Settings | `/settings` | Account profile, notifications, privacy, data & storage (cache clear, history management) |
+| Integrations | `/integrations` | Data source configuration, enable/disable agents, API key management |
 
 ### State Management (Zustand)
 
 ```javascript
 {
-  // Chat state (new)
-  conversations: [],            // List of {id, title, created_at, messages[]}
-  activeConversationId: null,
-  uploadedFiles: [],            // {id, name, status, size}
-  agentActivities: [],          // Live agent status during processing
+  // Persisted state (survives page reload via localStorage)
+  user: null,                     // User profile (JWT auth)
+  searchHistory: [],              // Last 50 searches with drug names and scores
+  savedOpportunities: [],         // Bookmarked drug-indication opportunities
+  sidebarCollapsed: false,        // Sidebar visibility toggle
+  theme: 'dark',                  // 'dark' or 'light' (theme toggle)
 
-  // Existing state
-  user: null,
-  searchHistory: [],
+  // Chat state
+  conversations: [],              // List of {id, title, created_at, messages[]}
+  activeConversationId: null,
+  uploadedFiles: [],              // {id, name, status, size}
+  agentActivities: [],            // Live agent status during processing
+
+  // Session state (cleared on reload)
   currentSearch: null,
-  agentProgress: {},            // 15 agents tracked
-  sidebarCollapsed: false,
+  agentProgress: {},              // 18 agents tracked (7 EY groups)
+  activeTab: 'opportunities',     // Current results tab
+  selectedIndication: null,       // Currently viewed indication detail
 
   // Actions
   createConversation: () => {...},
@@ -1441,42 +1595,264 @@ Message Types:
   clearHistory: () => {...},
   setAgentProgress: (progress) => {...},
   toggleSidebar: () => {...},
+  toggleTheme: () => {...},
 }
 ```
 
+### Frontend Components
+
+#### Common/Shared Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `Button` | `components/common/Button.jsx` | Styled button with variants |
+| `Card` | `components/common/Card.jsx` | Dark-themed card container |
+| `Badge` | `components/common/Badge.jsx` | Status/label badge |
+| `Modal` | `components/common/Modal.jsx` | Animated modal dialog |
+| `Tooltip` | `components/common/Tooltip.jsx` | Hover tooltip |
+| `Skeleton` | `components/common/Skeleton.jsx` | Loading skeleton placeholder |
+| `ProgressBar` | `components/common/ProgressBar.jsx` | Animated progress indicator |
+| `Tabs` | `components/common/Tabs.jsx` | Tab navigation component |
+| `SearchInput` | `components/common/SearchInput.jsx` | Styled search input |
+| `DataTable` | `components/common/DataTable.jsx` | Sortable, filterable data table |
+| `EmptyState` | `components/common/EmptyState.jsx` | Consistent empty state UI |
+| `ReportPreviewModal` | `components/common/ReportPreviewModal.jsx` | Report preview before download |
+| `CommandPalette` | `components/common/CommandPalette.jsx` | Global Ctrl+K command/search palette |
+| `ShortcutsModal` | `components/common/ShortcutsModal.jsx` | Keyboard shortcuts reference modal |
+| `OnboardingTour` | `components/common/OnboardingTour.jsx` | 5-step first-time user walkthrough |
+| `NotificationCenter` | `components/common/NotificationCenter.jsx` | Toast notifications + notification dropdown |
+
+#### Search Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `SearchBox` | `components/search/SearchBox.jsx` | Drug name input with recent searches |
+| `SearchProgress` | `components/search/SearchProgress.jsx` | 7 EY Worker Agent groups with live status |
+| `AgentStatus` | `components/search/AgentStatus.jsx` | Individual agent status indicator |
+| `DrugPreviewCard` | `components/search/DrugPreviewCard.jsx` | Drug type-ahead preview (appears at ≥3 chars) |
+
+#### Results Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `RegulatoryPathway` | `components/results/RegulatoryPathway.jsx` | FDA pathway recommendation cards with timeline/cost |
+| `StrategicBrief` | `components/results/StrategicBrief.jsx` | Executive GO/INVESTIGATE/NO-GO recommendation |
+
+#### Visualization Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `SourceDistribution` | `components/visualizations/SourceDistribution.jsx` | Evidence source distribution chart |
+| `RadarChart` | `components/visualizations/RadarChart.jsx` | Multi-dimensional radar/spider chart |
+| `EvidenceGraph` | `components/visualizations/EvidenceGraph.jsx` | Interactive evidence network graph (SVG) |
+
+#### Layout Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `Sidebar` | `components/layout/Sidebar.jsx` | Main navigation sidebar |
+| `Header` | `components/layout/Header.jsx` | Top bar with search, notifications, theme toggle |
+| `MobileNav` | `components/layout/MobileNav.jsx` | Mobile bottom navigation |
+| `Breadcrumbs` | `components/layout/Breadcrumbs.jsx` | Navigation breadcrumbs |
+
 ---
 
-## 14-21. Additional Sections
+## 14. UX Features
+
+### Command Palette (Ctrl+K)
+
+**File:** `components/common/CommandPalette.jsx`
+
+A global keyboard-driven command palette (similar to VS Code's Cmd+K) for fast navigation and search:
+
+- **Navigation commands**: Jump to any page (Chat, Dashboard, Search, History, Saved, Settings, Integrations, Compare)
+- **Action commands**: Analyze a Drug, New Conversation
+- **Search**: Fuzzy-filters recent searches (last 5) and saved opportunities (last 5)
+- **Keyboard navigation**: ↑↓ arrows to navigate, Enter to select, Esc to close
+- **Grouped results**: Commands organized by type (Actions, Pages, Recent Searches, Saved Items)
+
+### Keyboard Shortcuts
+
+**Files:** `layouts/MainLayout.jsx`, `components/common/ShortcutsModal.jsx`
+
+Global shortcuts available throughout the application:
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+K` | Open Command Palette |
+| `Ctrl+/` | Focus chat input |
+| `Ctrl+Shift+N` | New drug search |
+| `Ctrl+Shift+D` | Go to Dashboard |
+| `Ctrl+Shift+H` | Go to History |
+| `?` | Open keyboard shortcuts help (when not in text input) |
+| `Esc` | Close any open modal |
+
+### Onboarding Tour
+
+**File:** `components/common/OnboardingTour.jsx`
+
+A 5-step interactive walkthrough shown on first visit:
+
+| Step | Title | Description |
+|------|-------|-------------|
+| 1 | Welcome | Introduction to Repurpose.AI |
+| 2 | AI Assistant | How to use the chat interface |
+| 3 | Drug Search Pipeline | How the 18-agent search works |
+| 4 | Command Palette | Ctrl+K for quick navigation |
+| 5 | Export & Reports | PDF/Excel export capabilities |
+
+- Appears 1 second after first app load
+- Can be skipped or stepped through with progress dots
+- Completion persisted to `localStorage['repurpose-ai-tour-seen']`
+
+### Notification & Toast System
+
+**File:** `components/common/NotificationCenter.jsx`
+
+Two-part notification system:
+
+1. **Toast Notifications** (bottom-right corner):
+   - Auto-dismissing (default 5 seconds)
+   - Maximum 3 visible at once
+   - Types: `info`, `success`, `warning`, `error`
+
+2. **Notification Center** (bell icon dropdown in header):
+   - Persistent notification history (max 50)
+   - Unread count badge
+   - Mark all as read functionality
+
+**Global API:**
+```javascript
+import { notify } from '../components/common/NotificationCenter';
+
+notify({
+  title: 'Export Complete',
+  message: 'Your PDF report is ready for download',
+  type: 'success',
+  duration: 5000
+});
+```
+
+### Drug Preview Card
+
+**File:** `components/search/DrugPreviewCard.jsx`
+
+Appears below the search box when the user types ≥ 3 characters:
+
+- Shows whether the drug was previously searched (from `searchHistory`)
+- Displays count of saved opportunities for that drug
+- Shows basic drug class information from OpenFDA
+- Animated appearance/disappearance
+
+### Evidence Graph Visualization
+
+**File:** `components/visualizations/EvidenceGraph.jsx`
+
+Interactive SVG network graph (700×500) visualizing drug-indication-evidence relationships:
+
+```
+                    ┌─── Evidence Items (outer ring) ───┐
+                    │                                    │
+              ┌─────┼─── Indication Nodes (top 8) ──────┼─────┐
+              │     │                                    │     │
+              │     └────────── Drug Node ───────────────┘     │
+              │              (center)                          │
+              └────────────────────────────────────────────────┘
+```
+
+- **Central node**: Drug name
+- **Middle ring**: Top 8 indications arranged in circle
+- **Outer ring**: Evidence items linked to indications
+- **Color coding by source**: clinical_trial (blue), patent (yellow), literature (purple), web (green), IQVIA (pink), EXIM (orange), internal (gray)
+- **Node size**: Proportional to relevance score
+- **Interactivity**: Click to highlight connections, hover for details
+
+### Dark/Light Theme Toggle
+
+- Toggle available in the header
+- Theme stored in Zustand state (persisted to localStorage)
+- Applied via CSS class `light-theme` on document root
+- Default: dark theme matching the platform's brand colors
+
+---
+
+## 15-21. Additional Sections
+
+### Feature List
+
+#### Core Platform Features
+- **18-Agent Unified Pipeline** — 15 core agents + 3 EY wrappers, one brain for Search and Chat
+- **7 EY Worker Agent Groups** — IQVIA, EXIM, Patent, Clinical Trials, Internal, Web Intelligence, Report Generator
+- **4D Composite Scoring + Refinement** — Scientific (40%), Market (25%), Competitive (20%), Feasibility (15%) with +/-20 refinement
+- **Conversational AI** — Chat-first interface with Master Agent orchestrating all agents
+- **Decision Rules Engine** — Whitespace detection, biosimilar opportunity, formulation gap, geographic arbitrage, unmet need alerts
+- **Smart Indication Matching** — 60+ medical abbreviations, fuzzy matching, 50+ therapeutic areas
+
+#### Analysis & Intelligence
+- **Drug Comparison** — Compare 2-3 drugs side-by-side with overlapping/unique indications and AI summary
+- **Regulatory Pathway Advisor** — FDA pathway recommendations (505(b)(2), Fast Track, Orphan Drug, Breakthrough)
+- **Strategic Brief** — Executive GO / INVESTIGATE / NO-GO recommendation with timeline and cost estimates
+- **Drug Quick Lookup** — Fast metadata retrieval via OpenFDA (no full pipeline needed)
+- **Market Analysis API** — Dedicated market intelligence with competitor tracking and geographic hotspots
+- **Evidence Graph** — Interactive SVG network visualization of drug-indication-evidence relationships
+
+#### Export & Archival
+- **PDF Reports** — Dark-themed, multi-page professional reports via Playwright
+- **Single-Opportunity PDF** — Mini 3-4 page report for individual drug-indication pairs
+- **Excel Export** — 4-sheet workbook (Summary, Opportunities, Evidence, Market)
+- **Report Archival** — Auto-archived with metadata, searchable via History page
+- **JSON Export** — Raw data export for further analysis
+
+#### User Experience
+- **Command Palette (Ctrl+K)** — Global search and navigation palette
+- **Keyboard Shortcuts** — 7 global shortcuts for fast navigation
+- **Onboarding Tour** — 5-step interactive walkthrough for new users
+- **Notification/Toast System** — Real-time notifications with persistent history
+- **Drug Preview Card** — Type-ahead preview showing drug info while typing
+- **Dark/Light Theme Toggle** — Switchable theme with localStorage persistence
+- **Real-Time Progress** — WebSocket-based live agent activity during searches
+
+#### Data & Persistence
+- **Conversation Persistence** — Chat sessions auto-saved and loadable
+- **10 Synthetic Welcome Queries** — Pre-built strategic pharma questions
+- **6 Internal Documents** — Pre-loaded RAG knowledge base (cardiovascular, biosimilar, API sourcing, oncology, respiratory, CNS)
+- **File Upload** — PDF upload for custom internal knowledge via ChromaDB
+- **Authentication System** — JWT-based login/registration
 
 ### Caching Strategy
-- JSON file-based caching
-- 7-day TTL (configurable)
-- Per-drug cache entries
-- Force refresh option
+- JSON file-based caching with 7-day TTL (configurable)
+- Per-drug cache entries in `data/cache/`
+- Drug info cache (24hr TTL) in `data/cache/drug_info/`
+- Force refresh option available
+- Individual drug cache clearing via API
 
 ### Failure Handling
-- Per-agent error isolation
-- Graceful degradation (partial results)
+- Per-agent error isolation (one agent failing doesn't break others)
+- Graceful degradation (partial results returned)
 - Automatic LLM fallback (Gemini → Ollama)
 - Retry logic with exponential backoff
+- Frontend retry configuration (3 retries, 1s delay, retryable status codes)
 
 ### Security
 - CORS configuration
-- JWT authentication (optional)
+- JWT authentication with password hashing
 - API key management for integrations
-- No PII stored
+- No PII stored in cache
+- Secure file upload with type validation
 
 ### Configuration
 - Environment variables via `.env`
 - API URL configuration
-- Rate limit settings
+- Rate limit settings per agent
 - Cache TTL customization
+- WebSocket timeout (10 minutes for long-running searches)
 
 ### Deployment
 ```bash
 # Backend
 cd backend
 pip install -r requirements.txt
+playwright install chromium
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 # Frontend
@@ -1485,6 +1861,151 @@ npm install
 npm run build
 # Serve dist/ with nginx or similar
 ```
+
+---
+
+## 22. EY Techathon Semi-Final Enhancements
+
+This section covers the 7 major features added for the EY Techathon 6.0 Semi-Finals (February 8, 2026), transforming the platform from v3.0 to v3.1.
+
+### 22.1 Unified Brain Architecture
+
+**Problem:** The Drug Search pipeline (15 LangGraph agents) and Chat system (7 Master Agent workers) operated as two separate "brains" — the Search pipeline ran 15 real API agents but had no IQVIA/EXIM/WebIntel data, while Chat had access to those workers but couldn't feed their data into the scoring pipeline.
+
+**Solution:** 3 pipeline wrapper agents that adapt Chat worker agents to the `BaseAgent` interface:
+
+| Pipeline Wrapper | Wraps | Data Source | Evidence Type |
+|-----------------|-------|-------------|---------------|
+| `IQVIAPipelineAgent` | `MarketAnalyzer` | 14 therapeutic area scans | `market_data` — market size, CAGR, unmet need |
+| `EXIMPipelineAgent` | `EXIMAgent` | Per-drug trade data | `trade_data` — import/export volumes, top countries |
+| `WebIntelligencePipelineAgent` | `WebIntelligenceAgent` | Web search results | `clinical_guideline`, `literature`, `real_world_evidence`, `regulatory_news` |
+
+**How it works:**
+```
+Before: Search → 15 agents → Score → Results  (no IQVIA/EXIM/WebIntel)
+         Chat  → 7 workers → Response         (separate system)
+
+After:  Search → 18 agents (15 + 3 wrappers) → Score → Results
+         Chat  → 7 workers → Response (can also trigger same 18-agent pipeline)
+```
+
+**Frontend display:** SearchProgress shows 7 grouped Worker Agents (collapsible to see all 18 individual data sources). Uses `EY_AGENT_GROUPS` mapping in `constants.js` with `eyGroup` field on each agent.
+
+**Key files:** `iqvia_pipeline_agent.py`, `exim_pipeline_agent.py`, `web_intelligence_pipeline_agent.py`, `nodes.py`, `websocket.py`
+
+### 22.2 Report Archival System
+
+**Purpose:** Automatically archive every generated report (PDF and Excel) with searchable metadata, enabling users to access historical reports.
+
+**Architecture:**
+```
+Report Generated → ReportArchiveManager.archive() → Filesystem Storage
+                                                    ├── data/reports/{id}.pdf
+                                                    ├── data/reports/{id}.xlsx
+                                                    └── data/reports/reports_metadata.json
+```
+
+**Features:**
+- Filesystem-based storage with JSON metadata index
+- Auto-archival triggered on every PDF/Excel export
+- 5 REST API endpoints (`/api/reports`) for list, get, download, delete
+- Frontend "Archived Reports" tab on History page with download and delete actions
+- Metadata includes: report ID, drug name, format, file size, timestamp, indication count
+
+**Key files:** `report_archive_manager.py`, `routes/reports.py`
+
+### 22.3 Report Generator in Chat
+
+**Purpose:** Users can generate full analysis reports directly from the chat interface by asking "Generate a report for Metformin."
+
+**Flow:**
+```
+User: "Generate a report for Metformin"
+  → Master Agent intent classification → "report_generation"
+  → _run_report_agent() triggers full 18-agent LangGraph pipeline
+  → Results scored and synthesized
+  → PDF generated via Playwright
+  → Report auto-archived
+  → Download URL returned in chat response
+```
+
+**Key file:** `master_agent.py` (`_run_report_agent` method)
+
+### 22.4 Excel Export
+
+**Purpose:** Multi-sheet Excel reports as an alternative to PDF, useful for data analysis and further processing.
+
+**4-Sheet Structure:**
+
+| Sheet | Content | Styling |
+|-------|---------|---------|
+| **Summary** | Drug overview, total opportunities, execution time, top indication | Yellow #FFE600 headers |
+| **Opportunities** | All ranked indications with 4D scores, confidence levels | Color-coded confidence |
+| **Evidence** | Complete evidence items with source, type, relevance score, URL | Grouped by source |
+| **Market Data** | Market size, CAGR, patient populations, unmet need scores | Conditional formatting |
+
+**Endpoint:** `POST /api/export/excel` — accepts same data as PDF export, returns `.xlsx` file
+**Auto-archived** alongside PDF reports in `data/reports/`
+
+**Key file:** `excel_generator.py`
+
+### 22.5 Conversation Persistence
+
+**Purpose:** Save all chat conversations to disk so users can resume previous discussions.
+
+**Architecture:**
+```
+Chat Message → ConversationManager → data/conversations/{id}.json
+                                     ├── conversation metadata
+                                     └── messages[] with timestamps
+```
+
+**Features:**
+- JSON file-based persistence (one file per conversation)
+- 3 API endpoints: list conversations, get full conversation, delete
+- Chat sidebar shows conversation history with timestamps
+- Auto-saved on every message exchange (both user and AI messages)
+- Conversation titles auto-generated from first user message
+
+**Key files:** `conversation_manager.py`, `routes/chat.py`
+
+### 22.6 10 Synthetic Welcome Queries
+
+**Purpose:** Provide diverse, pharma-strategic starter questions on the chat welcome screen to demonstrate platform capabilities and guide new users.
+
+**Coverage areas:**
+1. Oncology repurposing opportunities
+2. EXIM trade data analysis
+3. Patent landscape assessment
+4. Biosimilar market evaluation
+5. Clinical trial pipeline analysis
+6. Market comparison across indications
+7. FDA guidance and regulatory pathways
+8. Unmet need identification
+9. Competitive landscape mapping
+10. Drug interaction and safety profiling
+
+**Rendered via:** `SuggestedQueries` component in `Chat.jsx` (`WELCOME_SUGGESTIONS` array)
+
+### 22.7 Internal Knowledge Base (6 Documents)
+
+**Purpose:** Pre-loaded pharmaceutical reference documents that the Internal Agent can search via RAG (Retrieval-Augmented Generation).
+
+**Documents:**
+
+| Document | Focus Area | Chunks |
+|----------|-----------|--------|
+| Cardiovascular Field Insights | CV drug landscape, market trends | ~7 chunks |
+| Biosimilar Assessment Report | Biosimilar market, regulatory pathways | ~7 chunks |
+| API Sourcing Report | Active pharmaceutical ingredient supply chain | ~7 chunks |
+| Oncology Pipeline Analysis | Cancer drug development trends | ~7 chunks |
+| Respiratory Therapeutics Overview | Asthma, COPD treatment landscape | ~7 chunks |
+| CNS Drug Development Report | Neurology/psychiatry drug pipeline | ~6 chunks |
+
+**Total:** 6 documents → 41 chunks indexed in ChromaDB at startup
+**Users can also upload** their own PDFs via the chat file upload feature, which adds to the same vector store.
+
+**Key files:** `data/internal_docs/*.txt`, `internal_agent.py`
 
 ---
 
@@ -1497,9 +2018,11 @@ npm run build
 | 2.1.0 | Feb 2026 | Added detailed scoring formula documentation for all 4 dimensions |
 | 2.2.0 | Feb 2026 | Enhanced scoring with refinement layer (+/-20 per dimension) |
 | 3.0.0 | Feb 2026 | **EY Techathon 6.0 - Conversational AI transformation**: Master Agent orchestrator, chat-first UI, 7 EY worker agent groups, USPTO PatentsView integration, EXIM Trade Agent, Web Intelligence Agent, Decision Rules Engine, file upload + RAG, dark-theme PDF reports, response formatter with tables/charts/suggestions |
+| 3.1.0 | Feb 8, 2026 | **EY Semi-Final Enhancements**: Unified brain architecture (18 agents), 3 EY pipeline wrappers, report archival system (5 endpoints), report generator in chat, Excel export (4-sheet), conversation persistence, 10 synthetic welcome queries, 6 pre-loaded internal documents (41 ChromaDB chunks) |
+| 3.2.0 | Feb 11, 2026 | **Platform Polish & New Features**: Drug comparison feature (2-3 drugs side-by-side with backend API), regulatory pathway advisor (FDA recommendations), strategic brief (GO/INVESTIGATE/NO-GO), command palette (Ctrl+K), keyboard shortcuts (7 global), onboarding tour (5-step), notification/toast system, evidence graph visualization, drug preview card, authentication system (JWT), dark/light theme toggle, drug info API (OpenFDA), market analysis API |
 
 ---
 
-**Documentation last updated: February 2026**
-**Platform version: 3.0.0**
+**Documentation last updated: February 11, 2026**
+**Platform version: 3.2.0**
 **Built for: EY Techathon 6.0 Semi-Finals**

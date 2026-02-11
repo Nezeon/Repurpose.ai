@@ -40,6 +40,9 @@ python-dotenv==1.0.0
 # Data Processing
 numpy==1.26.3
 
+# Excel Export
+openpyxl>=3.1.0
+
 # Vector Database and Embeddings
 chromadb==0.4.22
 sentence-transformers==2.3.1

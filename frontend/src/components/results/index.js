@@ -7,3 +7,5 @@ export { default as AIInsights } from './AIInsights';
 export { default as OpportunityDetailPanel } from './OpportunityDetailPanel';
 export { default as ComparativePanel } from './ComparativePanel';
 export { default as SciencePanel } from './SciencePanel';
+export { default as StrategicBrief } from './StrategicBrief';
+export { default as RegulatoryPathway } from './RegulatoryPathway';

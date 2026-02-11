@@ -6,6 +6,7 @@ routes to appropriate worker agents, and synthesizes responses.
 """
 
 import json
+import time
 import uuid
 from typing import Dict, Any, List, Optional, Tuple
 from app.llm.llm_factory import LLMFactory
@@ -16,6 +17,7 @@ logger = get_logger("agents.master")
 # Intent types the Master Agent can detect
 INTENTS = [
     "drug_analysis",       # Full drug repurposing analysis (triggers 15-agent pipeline)
+    "report_generation",   # Generate a PDF report for a drug (pipeline + report agent)
     "market_query",        # Market size, CAGR, competitor data (IQVIA-style)
     "patent_lookup",       # Patent landscape, expiry, FTO
     "exim_data",           # Import-export trade data
@@ -57,6 +59,7 @@ Given the user's message and conversation history, output a JSON object with:
 
 Rules:
 - If user says "analyze [drug]" or "search [drug]" or "find repurposing opportunities for [drug]", intent is "drug_analysis"
+- If user asks to "generate a report", "create a report", "make a report", "export report", or "full report for [drug]", intent is "report_generation"
 - If user asks about market size, growth, CAGR, competition, or IQVIA-style data, intent is "market_query"
 - If user asks about patents, IP, FTO, exclusivity, or biosimilar opportunity, intent is "patent_lookup"
 - If user asks about import/export, EXIM, trade data, API sourcing, intent is "exim_data"
@@ -99,8 +102,51 @@ class MasterAgent:
     routes to worker agents, and synthesizes responses.
     """
 
+    # Class-level pipeline results cache: {conversation_id: {"data": {...}, "drug_name": str, "timestamp": float}}
+    _pipeline_cache: Dict[str, Dict[str, Any]] = {}
+    _CACHE_TTL_SECONDS = 1800  # 30 minutes
+    _CACHE_MAX_ENTRIES = 20
+
     def __init__(self):
         self.llm = None
+
+    def _cache_pipeline_result(self, conversation_id: str, drug_name: str, full_results: dict):
+        """Store pipeline results in memory cache for reuse within the same conversation."""
+        if not conversation_id:
+            return
+        self._cleanup_expired_cache()
+        MasterAgent._pipeline_cache[conversation_id] = {
+            "data": full_results,
+            "drug_name": drug_name,
+            "timestamp": time.time(),
+        }
+        logger.info(f"Cached pipeline results for conversation {conversation_id} ({drug_name})")
+
+    def _get_cached_pipeline(self, conversation_id: str, drug_name: str) -> Optional[dict]:
+        """Retrieve cached pipeline results for a conversation + drug combo."""
+        if not conversation_id:
+            return None
+        entry = MasterAgent._pipeline_cache.get(conversation_id)
+        if not entry:
+            return None
+        if time.time() - entry["timestamp"] > self._CACHE_TTL_SECONDS:
+            del MasterAgent._pipeline_cache[conversation_id]
+            return None
+        if entry["drug_name"].lower() != drug_name.lower():
+            return None
+        logger.info(f"Cache hit: pipeline results for {drug_name} in conversation {conversation_id}")
+        return entry["data"]
+
+    @classmethod
+    def _cleanup_expired_cache(cls):
+        """Remove expired entries and enforce max size."""
+        now = time.time()
+        expired = [k for k, v in cls._pipeline_cache.items() if now - v["timestamp"] > cls._CACHE_TTL_SECONDS]
+        for k in expired:
+            del cls._pipeline_cache[k]
+        while len(cls._pipeline_cache) > cls._CACHE_MAX_ENTRIES:
+            oldest_key = min(cls._pipeline_cache, key=lambda k: cls._pipeline_cache[k]["timestamp"])
+            del cls._pipeline_cache[oldest_key]
 
     def _get_llm(self):
         if self.llm is None:
@@ -119,7 +165,7 @@ class MasterAgent:
         """
         llm = self._get_llm()
         if llm is None:
-            return self._fallback_classify(message)
+            return self._fallback_classify(message, conversation_history)
 
         # Format conversation history
         history_text = "No previous messages."
@@ -163,15 +209,19 @@ class MasterAgent:
 
         except (json.JSONDecodeError, Exception) as e:
             logger.warning(f"LLM classification failed, using fallback: {e}")
-            return self._fallback_classify(message)
+            return self._fallback_classify(message, conversation_history)
 
-    def _fallback_classify(self, message: str) -> Dict[str, Any]:
+    def _fallback_classify(self, message: str, conversation_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
         """Rule-based fallback when LLM is unavailable."""
         msg = message.lower().strip()
         entities = {"drug_names": [], "indications": [], "regions": []}
 
         # Simple keyword-based intent detection
-        if any(kw in msg for kw in ["analyze", "search", "repurpos", "find opportunities", "find indications"]):
+        if any(kw in msg for kw in ["generate a report", "generate report", "create a report", "create report",
+                                      "full report", "make a report", "make report", "export report"]):
+            intent = "report_generation"
+            agents = ["pipeline", "report"]
+        elif any(kw in msg for kw in ["analyze", "search", "repurpos", "find opportunities", "find indications"]):
             intent = "drug_analysis"
             agents = ["pipeline"]
         elif any(kw in msg for kw in ["market", "iqvia", "cagr", "growth", "market size", "sales"]):
@@ -212,6 +262,17 @@ class MasterAgent:
             if drug in msg:
                 entities["drug_names"].append(drug.capitalize())
 
+        # If no drug found in current message, scan conversation history
+        if not entities["drug_names"] and conversation_history:
+            for hist_msg in reversed(conversation_history[-6:]):
+                hist_text = hist_msg.get("content", "").lower()
+                for drug in common_drugs:
+                    if drug in hist_text:
+                        entities["drug_names"].append(drug.capitalize())
+                        break
+                if entities["drug_names"]:
+                    break
+
         return {
             "intent": intent,
             "entities": entities,
@@ -224,6 +285,7 @@ class MasterAgent:
         """Get default agent list for an intent."""
         mapping = {
             "drug_analysis": ["pipeline"],
+            "report_generation": ["pipeline", "report"],
             "market_query": ["market"],
             "patent_lookup": ["patent"],
             "exim_data": ["exim"],
@@ -242,7 +304,9 @@ class MasterAgent:
         entities: Dict[str, Any],
         agents_needed: List[str],
         message: str,
-        uploaded_file_ids: List[str] = None
+        uploaded_file_ids: List[str] = None,
+        session_id: str = None,
+        conversation_id: str = None,
     ) -> Dict[str, Any]:
         """
         Execute the appropriate worker agents based on intent and entities.
@@ -254,7 +318,9 @@ class MasterAgent:
         for agent_key in agents_needed:
             try:
                 if agent_key == "pipeline":
-                    results["pipeline"] = await self._run_drug_pipeline(entities)
+                    results["pipeline"] = await self._run_drug_pipeline(
+                        entities, session_id=session_id, conversation_id=conversation_id
+                    )
                 elif agent_key == "market":
                     results["market"] = await self._run_market_agent(entities, message)
                 elif agent_key == "exim":
@@ -268,7 +334,18 @@ class MasterAgent:
                 elif agent_key == "internal":
                     results["internal"] = await self._run_internal_agent(entities, message, uploaded_file_ids)
                 elif agent_key == "report":
-                    results["report"] = await self._run_report_agent(entities, results)
+                    # Send WebSocket update: report agent is now running
+                    if session_id:
+                        try:
+                            from app.api.websocket import manager as ws_mgr
+                            await ws_mgr.send_agent_progress(
+                                session_id, "report", "running", "Generating PDF report..."
+                            )
+                        except Exception:
+                            pass
+                    results["report"] = await self._run_report_agent(
+                        entities, results, conversation_id=conversation_id
+                    )
             except Exception as e:
                 logger.error(f"Agent {agent_key} failed: {e}", exc_info=True)
                 results[agent_key] = {"error": str(e), "status": "error"}
@@ -293,6 +370,7 @@ class MasterAgent:
         tables = []
         charts = []
         pdf_url = None
+        excel_url = None
 
         for key, result in agent_results.items():
             if isinstance(result, dict):
@@ -302,6 +380,8 @@ class MasterAgent:
                     charts.extend(result["charts"])
                 if "pdf_url" in result:
                     pdf_url = result["pdf_url"]
+                if "excel_url" in result:
+                    excel_url = result["excel_url"]
 
         # Build agent data summary for LLM
         agent_data_parts = []
@@ -355,6 +435,7 @@ class MasterAgent:
             "tables": tables,
             "charts": charts,
             "pdf_url": pdf_url,
+            "excel_url": excel_url,
             "suggestions": suggestions[:3],
         }
 
@@ -400,8 +481,8 @@ class MasterAgent:
     # Worker Agent Runners
     # =====================================================
 
-    async def _run_drug_pipeline(self, entities: Dict) -> Dict:
-        """Trigger the full 15-agent drug analysis pipeline with 4D scoring."""
+    async def _run_drug_pipeline(self, entities: Dict, session_id: str = None, conversation_id: str = None) -> Dict:
+        """Trigger the full 18-agent drug analysis pipeline with 4D scoring."""
         drug_names = entities.get("drug_names", [])
         if not drug_names:
             return {
@@ -415,11 +496,11 @@ class MasterAgent:
             from app.graph.workflow import get_workflow
             workflow = get_workflow()
 
-            session_id = f"chat-{uuid.uuid4().hex[:8]}"
+            pipeline_session_id = session_id or f"chat-{uuid.uuid4().hex[:8]}"
             initial_state = {
                 "drug_name": drug_name,
                 "search_context": {},
-                "session_id": session_id,
+                "session_id": pipeline_session_id,
             }
 
             result = await workflow.ainvoke(initial_state)
@@ -536,6 +617,10 @@ class MasterAgent:
                     synthesis += "\n\n### Decision Intelligence Flags\n" + "\n".join(f"- {f}" for f in opportunity_flags[:5])
             except Exception as e:
                 logger.warning(f"Decision rules engine failed: {e}")
+
+            # Cache pipeline results for reuse (e.g., report generation in a follow-up message)
+            if conversation_id and result:
+                self._cache_pipeline_result(conversation_id, drug_name, result)
 
             return {
                 "summary": synthesis or f"Analysis complete for {drug_name}. Found {len(enhanced)} opportunities from {evidence_count} evidence items.",
@@ -777,13 +862,110 @@ class MasterAgent:
             logger.error(f"Internal agent failed: {e}", exc_info=True)
             return {"summary": f"Internal search failed: {str(e)}", "status": "error", "error": str(e)}
 
-    async def _run_report_agent(self, entities: Dict, collected_results: Dict) -> Dict:
-        """Generate a PDF report from collected results."""
-        # This will be wired to the existing PDF generation pipeline
-        return {
-            "summary": "Report generation will be integrated with the existing PDF pipeline.",
-            "status": "pending"
-        }
+    async def _run_report_agent(self, entities: Dict, collected_results: Dict, conversation_id: str = None) -> Dict:
+        """Generate a PDF report from collected results and archive it."""
+        drug_names = entities.get("drug_names", [])
+        if not drug_names:
+            return {
+                "summary": "No drug specified for report generation. Please specify a drug name.",
+                "status": "error",
+            }
+
+        drug_name = drug_names[0]
+        logger.info(f"Report agent: Generating report for {drug_name}")
+
+        try:
+            # Check if pipeline results exist from this request's collected_results
+            pipeline_result = collected_results.get("pipeline")
+
+            # _run_drug_pipeline() returns a processed dict with "full_results" containing the raw workflow state
+            # Extract raw pipeline state needed for PDF generation
+            pipeline_data = None
+            if isinstance(pipeline_result, dict):
+                pipeline_data = pipeline_result.get("full_results")
+
+            # Check in-memory cache if no pipeline data from current request
+            if not pipeline_data or not isinstance(pipeline_data, dict):
+                if conversation_id:
+                    pipeline_data = self._get_cached_pipeline(conversation_id, drug_name)
+                    if pipeline_data:
+                        logger.info(f"Using cached pipeline results for report generation ({drug_name})")
+
+            if not pipeline_data or not isinstance(pipeline_data, dict):
+                # Run the full pipeline to get data for the report
+                logger.info(f"No pipeline results found, running full search for {drug_name}")
+                from app.graph.workflow import get_workflow
+
+                workflow = get_workflow()
+                session_id = f"report-{uuid.uuid4().hex[:8]}"
+                initial_state = {
+                    "drug_name": drug_name,
+                    "search_context": {},
+                    "session_id": session_id,
+                }
+                pipeline_data = await workflow.ainvoke(initial_state)
+
+            # Generate PDF directly from pipeline dict (no Pydantic wrapping needed)
+            # generate_pdf_report() accepts Union[dict, SearchResponse] and uses safe_get() internally
+            from app.utils.html_pdf_generator import generate_pdf_report
+            import asyncio
+
+            # Ensure drug_name is set in pipeline_data for the template
+            if "drug_name" not in pipeline_data:
+                pipeline_data["drug_name"] = drug_name
+
+            pdf_bytes = await asyncio.to_thread(generate_pdf_report, pipeline_data)
+
+            # Archive the PDF report
+            from app.archive.report_archive_manager import ReportArchiveManager
+            archive = ReportArchiveManager()
+
+            report_metadata = archive.archive_report(
+                pdf_bytes=pdf_bytes,
+                drug_name=drug_name,
+                report_type="full_report",
+                session_id=pipeline_data.get("session_id"),
+            )
+
+            report_id = report_metadata["report_id"]
+            download_url = f"/api/reports/{report_id}/download"
+
+            logger.info(f"PDF report generated and archived: {report_id} ({len(pdf_bytes):,} bytes)")
+
+            # Generate Excel report (non-blocking — PDF is the primary deliverable)
+            excel_url = None
+            try:
+                from app.utils.excel_generator import generate_excel_report
+                excel_bytes = await asyncio.to_thread(generate_excel_report, pipeline_data)
+
+                excel_metadata = archive.archive_report(
+                    pdf_bytes=excel_bytes,
+                    drug_name=drug_name,
+                    report_type="excel_report",
+                    session_id=pipeline_data.get("session_id"),
+                )
+                excel_url = f"/api/reports/{excel_metadata['report_id']}/download"
+                logger.info(f"Excel report archived: {excel_metadata['report_id']} ({len(excel_bytes):,} bytes)")
+            except Exception as excel_err:
+                logger.warning(f"Excel generation failed (non-blocking): {excel_err}")
+
+            opp_count = len(pipeline_data.get("enhanced_indications", pipeline_data.get("ranked_indications", [])))
+            return {
+                "summary": f"PDF report for **{drug_name}** has been generated successfully with {opp_count} repurposing opportunities analyzed.",
+                "status": "success",
+                "report_id": report_id,
+                "pdf_url": download_url,
+                "excel_url": excel_url,
+                "file_size": len(pdf_bytes),
+            }
+
+        except Exception as e:
+            logger.error(f"Report agent failed: {e}", exc_info=True)
+            return {
+                "summary": f"Failed to generate report: {str(e)}",
+                "status": "error",
+                "error": str(e),
+            }
 
     # =====================================================
     # Utility methods

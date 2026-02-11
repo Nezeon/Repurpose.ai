@@ -15,13 +15,16 @@ from app.models.schemas import (
 )
 from app.agents.master_agent import MasterAgent, EY_AGENT_NAMES
 from app.llm.llm_factory import LLMFactory
+from app.chat.conversation_manager import ConversationManager
+from app.api.websocket import manager as ws_manager
 from app.utils.logger import get_logger
 
 logger = get_logger("api.chat")
 router = APIRouter()
 
-# Singleton Master Agent
+# Singletons
 _master_agent = MasterAgent()
+_conv_manager = ConversationManager()
 
 
 @router.post("/chat/message", response_model=ConversationResponse)
@@ -73,6 +76,7 @@ async def conversational_chat(request: ConversationRequest) -> ConversationRespo
 
         # Step 3: Build agent activity list for UI
         agent_activities = []
+        ws_session = request.session_id
         for agent_key in agents_needed:
             display_name = EY_AGENT_NAMES.get(agent_key, agent_key)
             agent_activities.append(AgentActivity(
@@ -81,19 +85,67 @@ async def conversational_chat(request: ConversationRequest) -> ConversationRespo
                 message=f"Querying {display_name}..."
             ))
 
+        # Send real-time progress via WebSocket (if session connected)
+        if ws_session:
+            try:
+                await ws_manager.send_message(ws_session, {
+                    "type": "chat_agents_info",
+                    "agents_needed": agents_needed,
+                    "agent_names": {k: EY_AGENT_NAMES.get(k, k) for k in agents_needed},
+                })
+                for agent_key in agents_needed:
+                    display_name = EY_AGENT_NAMES.get(agent_key, agent_key)
+                    # Report agent starts after pipeline, so mark as pending initially
+                    if agent_key == "report":
+                        await ws_manager.send_agent_progress(
+                            ws_session, agent_key, "pending", "Waiting for pipeline..."
+                        )
+                    else:
+                        await ws_manager.send_agent_progress(
+                            ws_session, agent_key, "running", f"Querying {display_name}..."
+                        )
+            except Exception as ws_err:
+                logger.debug(f"WebSocket progress send failed (non-blocking): {ws_err}")
+
         # Step 4: Execute worker agents
         agent_results = await _master_agent.execute_agents(
             intent=intent,
             entities=entities,
             agents_needed=agents_needed,
             message=request.message,
-            uploaded_file_ids=request.uploaded_file_ids
+            uploaded_file_ids=request.uploaded_file_ids,
+            session_id=ws_session,
+            conversation_id=conversation_id,
         )
 
-        # Update agent activities to done
+        # Build pipeline metadata for frontend history tracking
+        pipeline_metadata = None
+        if "pipeline" in agents_needed:
+            pipeline_result = agent_results.get("pipeline", {})
+            if isinstance(pipeline_result, dict) and pipeline_result.get("status") == "success":
+                pipe_data = pipeline_result.get("data", {})
+                pipeline_metadata = {
+                    "drug_name": pipe_data.get("drug_name", ""),
+                    "opportunity_count": pipe_data.get("opportunities", 0),
+                    "evidence_count": pipe_data.get("evidence_count", 0),
+                    "source": "chat",
+                }
+
+        # Update agent activities to done + send WebSocket completion
         for activity in agent_activities:
             activity.status = "done"
             activity.message = "Complete"
+
+        if ws_session:
+            try:
+                for agent_key in agents_needed:
+                    if agent_key != "pipeline":  # Pipeline sends its own per-agent updates
+                        result = agent_results.get(agent_key, {})
+                        status = "error" if isinstance(result, dict) and "error" in result else "success"
+                        await ws_manager.send_agent_progress(ws_session, agent_key, status, "Complete")
+                await ws_manager.send_workflow_status(ws_session, "synthesize", "running", "Synthesizing response...")
+            except Exception as ws_err:
+                logger.debug(f"WebSocket completion send failed (non-blocking): {ws_err}")
 
         # Step 5: Synthesize response
         synthesis = await _master_agent.synthesize_response(
@@ -119,17 +171,52 @@ async def conversational_chat(request: ConversationRequest) -> ConversationRespo
                 for c in charts_data
             ] if charts_data else [],
             pdf_url=synthesis.get("pdf_url"),
+            excel_url=synthesis.get("excel_url"),
             agent_activities=agent_activities,
             suggestions=synthesis.get("suggestions", []),
         )
 
         logger.info(f"[{conversation_id}] Response: {len(synthesis.get('content', ''))} chars, {len(tables_data)} tables, {len(charts_data)} charts")
 
+        # Signal completion via WebSocket
+        if ws_session:
+            try:
+                await ws_manager.send_message(ws_session, {
+                    "type": "complete",
+                    "status": "success",
+                })
+            except Exception:
+                pass
+
+        # Persist conversation messages with all rich data
+        try:
+            _conv_manager.save_message(conversation_id, "user", request.message)
+            _conv_manager.save_message(
+                conversation_id, "assistant",
+                synthesis.get("content", ""),
+                metadata={"intent": intent},
+                tables=[
+                    {"title": t.get("title", ""), "columns": t.get("columns", []), "rows": t.get("rows", [])}
+                    for t in tables_data
+                ] if tables_data else None,
+                charts=[
+                    {"chart_type": c.get("chart_type", "bar"), "title": c.get("title", ""), "labels": c.get("labels", []), "datasets": c.get("datasets", [])}
+                    for c in charts_data
+                ] if charts_data else None,
+                suggestions=synthesis.get("suggestions") or None,
+                agent_activities=agent_activities or None,
+                pdf_url=synthesis.get("pdf_url"),
+                excel_url=synthesis.get("excel_url"),
+            )
+        except Exception as persist_err:
+            logger.warning(f"Failed to persist conversation (non-blocking): {persist_err}")
+
         return ConversationResponse(
             conversation_id=conversation_id,
             message=response_message,
             intent=intent,
             entities=entities,
+            pipeline_metadata=pipeline_metadata,
         )
 
     except HTTPException:
@@ -209,6 +296,35 @@ def _build_chat_prompt(question, drug_name, indications=None, evidence_summary=N
     )
 
     return "\n".join(prompt_parts)
+
+
+@router.get("/chat/conversations")
+async def list_conversations(limit: int = 50) -> Dict[str, Any]:
+    """Get list of all saved conversations (most recent first)."""
+    try:
+        conversations = _conv_manager.list_conversations(limit=limit)
+        return {"total": len(conversations), "conversations": conversations}
+    except Exception as e:
+        logger.error(f"Failed to list conversations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/chat/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str) -> Dict[str, Any]:
+    """Get full conversation by ID with all messages."""
+    conversation = _conv_manager.get_conversation(conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conversation
+
+
+@router.delete("/chat/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str) -> Dict[str, Any]:
+    """Delete a conversation."""
+    success = _conv_manager.delete_conversation(conversation_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"status": "success", "message": f"Conversation {conversation_id} deleted"}
 
 
 @router.get("/chat/health")
